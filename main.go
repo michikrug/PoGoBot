@@ -49,8 +49,8 @@ type Pokemon struct {
 	Id                      string `gorm:"primaryKey"`
 	PokestopID              *string
 	SpawnID                 *int64
-	Lat                     float64
-	Lon                     float64
+	Lat                     float32
+	Lon                     float32
 	Weight                  *float32
 	Size                    *int
 	Height                  *float32
@@ -236,8 +236,18 @@ func getUsers() {
 	}
 }
 
+func sendLocation(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Expiration int) {
+	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Location{Lat: Lat, Lng: Lon})
+	if err != nil {
+		log.Printf("❌ Failed to send location: %v", err)
+	} else {
+		// Store message ID for cleanup
+		dbConfig.Create(&Message{MessageID: strconv.Itoa(message.ID), ChatID: UserID, Expiration: Expiration})
+	}
+}
+
 func sendNotification(bot *telebot.Bot, UserID int64, Text string, Expiration int) {
-	message, err := bot.Send(&telebot.User{ID: UserID}, Text)
+	message, err := bot.Send(&telebot.User{ID: UserID}, Text, telebot.ModeMarkdown)
 	if err != nil {
 		log.Printf("❌ Failed to send message: %v", err)
 	} else {
@@ -248,12 +258,27 @@ func sendNotification(bot *telebot.Bot, UserID int64, Text string, Expiration in
 
 func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	pokemonName := pokemonIDToName[user.Language][strconv.Itoa(encounter.PokemonId)]
-	sendNotification(bot, user.ID, fmt.Sprintf("🔔 %s appeared!\nIV: %.2f\n📍 Location: %f,%f\n⏳ Despawns: %s",
+	gender := "\u2642"
+	if *encounter.Gender == 2 {
+		gender = "\u2640"
+	} else if *encounter.Gender == 3 {
+		gender = "\u26b2"
+	}
+
+	sendLocation(bot, user.ID, encounter.Lat, encounter.Lon, *encounter.ExpireTimestamp)
+	sendNotification(bot, user.ID, fmt.Sprintf("*🔔 %s %s %.1f%% (%c | %c | %c) 📍 %f, %fm*\n💨 %s ⏳ %s\n⚔ %c / %c",
 		pokemonName,
+		gender,
 		*encounter.IV,
+		*encounter.AtkIV,
+		*encounter.DefIV,
+		*encounter.StaIV,
 		encounter.Lat,
 		encounter.Lon,
 		time.Unix(int64(*encounter.ExpireTimestamp), 0).Format(time.RFC822),
+		time.Unix(int64(*encounter.Updated), 0).Format(time.RFC822),
+		*encounter.Move1,
+		*encounter.Move2,
 	), *encounter.ExpireTimestamp)
 }
 
