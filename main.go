@@ -236,6 +236,16 @@ func getUsers() {
 	}
 }
 
+func sendSticker(bot *telebot.Bot, UserID int64, URL string, Expiration int) {
+	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Sticker{File: telebot.FromURL(URL)})
+	if err != nil {
+		log.Printf("❌ Failed to send sticker: %v", err)
+	} else {
+		// Store message ID for cleanup
+		dbConfig.Create(&Message{MessageID: strconv.Itoa(message.ID), ChatID: UserID, Expiration: Expiration})
+	}
+}
+
 func sendLocation(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Expiration int) {
 	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Location{Lat: Lat, Lng: Lon})
 	if err != nil {
@@ -265,8 +275,11 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 		gender = "\u26b2"
 	}
 
+	var url = fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d.webp", encounter.PokemonId)
+
+	sendSticker(bot, user.ID, url, *encounter.ExpireTimestamp)
 	sendLocation(bot, user.ID, encounter.Lat, encounter.Lon, *encounter.ExpireTimestamp)
-	sendNotification(bot, user.ID, fmt.Sprintf("*🔔 %s %s %.1f%% (%c | %c | %c) 📍 %f, %fm*\n💨 %s ⏳ %s\n⚔ %c / %c",
+	sendNotification(bot, user.ID, fmt.Sprintf("*🔔 %s %s %.1f%% (%d | %d | %d) 📍 %f, %fm*\n💨 %s ⏳ %s\n⚔ %d / %d",
 		pokemonName,
 		gender,
 		*encounter.IV,
