@@ -348,7 +348,7 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 			haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))))
 	}
 
-	notificationText.WriteString(fmt.Sprintf("💨 %s\n⏳ %s\n",
+	notificationText.WriteString(fmt.Sprintf("💨 %s ⏳ %s\n",
 		expireTime.Format(time.TimeOnly),
 		timeLeft.Truncate(time.Second).String()))
 
@@ -504,11 +504,31 @@ func main() {
 		}
 
 		userID := c.Sender().ID
-		dbConfig.Save(&User{ID: userID, Language: lang})
+		dbConfig.Model(&User{}).Where("id = ?", userID).Updates(User{Language: lang})
 
 		getUsers()
 
 		return c.Reply(fmt.Sprintf("✅ Language set to %s", lang))
+	})
+
+	bot.Handle("/distance", func(c telebot.Context) error {
+		args := c.Args()
+		if len(args) < 1 {
+			return c.Reply("Usage: /distance <en|de>")
+		}
+
+		distance := args[0]
+
+		userID := c.Sender().ID
+		distanceFloat, err := strconv.ParseFloat(distance, 32)
+		if err != nil {
+			return c.Reply("Invalid distance value. Please provide a valid number.")
+		}
+		dbConfig.Model(&User{}).Where("id = ?", userID).Updates(User{Distance: float32(distanceFloat)})
+
+		getUsers()
+
+		return c.Reply(fmt.Sprintf("✅ Distance set to %.0f meters", distanceFloat))
 	})
 
 	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
@@ -523,16 +543,18 @@ func main() {
 	})
 
 	bot.Handle("/start", func(c telebot.Context) error {
-		telegramID := c.Sender().ID
-		userLang := c.Sender().LanguageCode // Auto-detect Telegram locale
+		userID := c.Sender().ID
+		lang := c.Sender().LanguageCode // Auto-detect Telegram locale
 
 		// Only support known languages, default to English
-		if userLang != "en" && userLang != "de" {
-			userLang = "en"
+		if lang != "en" && lang != "de" {
+			lang = "en"
 		}
 
 		// Save user preference (language & default location)
-		dbConfig.FirstOrCreate(&User{ID: telegramID}, User{Language: userLang})
+		var user User
+		dbConfig.FirstOrCreate(&user, User{ID: userID})
+		dbConfig.Model(&user).Updates(User{Language: lang})
 
 		// Welcome message
 		startMessage := fmt.Sprintf(
@@ -541,7 +563,7 @@ func main() {
 				"🔹 Send me your 📍 *location* to enable area-based notifications.\n"+
 				"✅ Use /language <en|de> to set your preferred language.\n"+
 				"✅ Use /subscribe <pokemon_name> <min_iv> to get notified about Pokémon!",
-			userLang,
+			lang,
 		)
 
 		return c.Reply(startMessage, telebot.ModeMarkdown)
@@ -596,9 +618,16 @@ func main() {
 						for _, sub := range subs {
 							var filters map[string]float32
 							json.Unmarshal([]byte(sub.Filters), &filters)
+							user := allUsers[sub.UserID]
 
 							if encounter.IV != nil && *encounter.IV >= filters["min_iv"] {
-								sendEncounterNotification(bot, allUsers[sub.UserID], encounter)
+								if user.Latitude != 0 && user.Longitude != 0 && user.Distance > 0 {
+									distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
+									if distance > float64(user.Distance) {
+										continue
+									}
+								}
+								sendEncounterNotification(bot, user, encounter)
 							}
 						}
 					}
