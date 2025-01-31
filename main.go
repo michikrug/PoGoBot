@@ -200,7 +200,7 @@ func loadMoveMappings(lang string, filename string) error {
 	}
 	moveIDToName[lang] = rawMap
 
-	log.Printf("✅ Loaded %d Move mappings for language: %s", len(pokemonIDToName[lang]), lang)
+	log.Printf("✅ Loaded %d Move mappings for language: %s", len(moveIDToName[lang]), lang)
 	return nil
 }
 
