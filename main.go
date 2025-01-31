@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -17,18 +18,18 @@ import (
 
 // Models
 type User struct {
-	ID         int64  `gorm:"primaryKey"`
-	Notify     bool   `gorm:"default:true"`
-	Language   string `gorm:"default:'de'"`
-	Stickers   bool   `gorm:"default:true"`
-	Cleanup    bool   `gorm:"default:true"`
-	Latitude   float32
-	Longtitude float32
-	Distance   float32
-	HundoIV    bool    `gorm:"default:false"`
-	ZeroIV     bool    `gorm:"default:false"`
-	MinIV      float32 `gorm:"default:0"`
-	MinLevel   int     `gorm:"default:0"`
+	ID        int64  `gorm:"primaryKey"`
+	Notify    bool   `gorm:"default:true"`
+	Language  string `gorm:"default:'de'"`
+	Stickers  bool   `gorm:"default:true"`
+	Cleanup   bool   `gorm:"default:true"`
+	Latitude  float32
+	Longitude float32
+	Distance  float32
+	HundoIV   bool    `gorm:"default:false"`
+	ZeroIV    bool    `gorm:"default:false"`
+	MinIV     float32 `gorm:"default:0"`
+	MinLevel  int     `gorm:"default:0"`
 }
 
 type Subscription struct {
@@ -93,11 +94,27 @@ var (
 	allUsers         map[int64]User
 	allSubscriptions map[int][]Subscription
 	pokemonNameToID  map[string]int
-	pokemonIDToName  map[string]map[string]string // Language → (Name → ID)
+	pokemonIDToName  map[string]map[string]string
+	moveIDToName     map[string]map[string]string
+	timezone         *time.Location // Local timezone
 )
 
 func (Pokemon) TableName() string {
 	return "pokemon"
+}
+
+// Haversine formula to calculate the distance between two points on the Earth
+func haversine(lat1, lon1, lat2, lon2 float64) float64 {
+	const R = 6371e3 // Earth radius in meters
+	phi1 := lat1 * (math.Pi / 180)
+	phi2 := lat2 * (math.Pi / 180)
+	deltaPhi := (lat2 - lat1) * (math.Pi / 180)
+	deltaLambda := (lon2 - lon1) * (math.Pi / 180)
+
+	a := math.Sin(deltaPhi/2)*math.Sin(deltaPhi/2) + math.Cos(phi1)*math.Cos(phi2)*math.Sin(deltaLambda/2)*math.Sin(deltaLambda/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return R * c
 }
 
 // Check if all required environment variables are set
@@ -168,9 +185,29 @@ func loadPokemonMappings(lang string, filename string) error {
 	return nil
 }
 
+// Load Move mappings from JSON file
+func loadMoveMappings(lang string, filename string) error {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	// Temporary map for original JSON structure
+	var rawMap map[string]string
+	err = json.Unmarshal(data, &rawMap)
+	if err != nil {
+		return err
+	}
+	moveIDToName[lang] = rawMap
+
+	log.Printf("✅ Loaded %d Move mappings for language: %s", len(pokemonIDToName[lang]), lang)
+	return nil
+}
+
 func loadAllLanguages() {
 	pokemonNameToID = make(map[string]int)
 	pokemonIDToName = make(map[string]map[string]string)
+	moveIDToName = make(map[string]map[string]string)
 
 	languages := map[string]string{
 		"en": "pokemon_en.json",
@@ -179,6 +216,18 @@ func loadAllLanguages() {
 
 	for lang, file := range languages {
 		err := loadPokemonMappings(lang, file)
+		if err != nil {
+			log.Fatalf("❌ Failed to load %s: %v", file, err)
+		}
+	}
+
+	languages = map[string]string{
+		"en": "moves_en.json",
+		"de": "moves_de.json",
+	}
+
+	for lang, file := range languages {
+		err := loadMoveMappings(lang, file)
 		if err != nil {
 			log.Fatalf("❌ Failed to load %s: %v", file, err)
 		}
@@ -267,31 +316,34 @@ func sendNotification(bot *telebot.Bot, UserID int64, Text string, Expiration in
 }
 
 func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
-	pokemonName := pokemonIDToName[user.Language][strconv.Itoa(encounter.PokemonId)]
-	gender := "\u2642"
-	if *encounter.Gender == 2 {
-		gender = "\u2640"
-	} else if *encounter.Gender == 3 {
-		gender = "\u26b2"
+	gender := map[int]string{
+		1: "\u2642", // Male
+		2: "\u2640", // Female
+		3: "\u26b2", // Genderless
 	}
+	genderSymbol := gender[*encounter.Gender]
 
 	var url = fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d.webp", encounter.PokemonId)
 
 	sendSticker(bot, user.ID, url, *encounter.ExpireTimestamp)
 	sendLocation(bot, user.ID, encounter.Lat, encounter.Lon, *encounter.ExpireTimestamp)
-	sendNotification(bot, user.ID, fmt.Sprintf("*🔔 %s %s %.1f%% (%d | %d | %d) 📍 %f, %fm*\n💨 %s ⏳ %s\n⚔ %d / %d",
-		pokemonName,
-		gender,
+
+	expireTime := time.Unix(int64(*encounter.ExpireTimestamp), 0).In(timezone)
+	timeLeft := time.Until(expireTime)
+
+	distance := haversine(user.Latitude, user.Longitude, encounter.Lat, encounter.Lon)
+	sendNotification(bot, user.ID, fmt.Sprintf("*🔔 %s %s %.1f%% (%d | %d | %d) 📍 %.2fm*\n💨 %s ⏳ %s\n💥 %s / %s",
+		pokemonIDToName[user.Language][strconv.Itoa(encounter.PokemonId)],
+		genderSymbol,
 		*encounter.IV,
 		*encounter.AtkIV,
 		*encounter.DefIV,
 		*encounter.StaIV,
-		encounter.Lat,
-		encounter.Lon,
-		time.Unix(int64(*encounter.ExpireTimestamp), 0).Format(time.RFC822),
-		time.Unix(int64(*encounter.Updated), 0).Format(time.RFC822),
-		*encounter.Move1,
-		*encounter.Move2,
+		distance,
+		expireTime.Format(time.TimeOnly),
+		timeLeft.Truncate(time.Second).String(),
+		moveIDToName[user.Language][strconv.Itoa(*encounter.Move1)],
+		moveIDToName[user.Language][strconv.Itoa(*encounter.Move2)],
 	), *encounter.ExpireTimestamp)
 }
 
@@ -338,6 +390,12 @@ func main() {
 
 	// Load subscriptions into a map
 	getSubscriptions()
+
+	var err error
+	if timezone, err = time.LoadLocation("Local"); err != nil {
+		log.Printf("❌ Failed to load local timezone: %v", err)
+		timezone = time.UTC
+	}
 
 	telegramBotToken := os.Getenv("BOT_TOKEN")
 	pref := telebot.Settings{
@@ -440,6 +498,17 @@ func main() {
 		getUsers()
 
 		return c.Reply(fmt.Sprintf("✅ Language set to %s", lang))
+	})
+
+	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
+		userID := c.Sender().ID
+		location := c.Message().Location
+
+		dbConfig.Save(&User{ID: userID, Latitude: location.Lat, Longitude: location.Lng})
+
+		getUsers()
+
+		return c.Reply("📍 Location updated! Your preferences will now consider this.")
 	})
 
 	// Background process to match encounters with subscriptions
