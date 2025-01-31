@@ -57,8 +57,8 @@ type Pokemon struct {
 	ExpireTimestamp         *int
 	Updated                 *int
 	PokemonId               int
-	Move1                   *int
-	Move2                   *int
+	Move1                   *int `gorm:"column:move_1"`
+	Move2                   *int `gorm:"column:move_2"`
 	Gender                  *int
 	Cp                      *int
 	AtkIV                   *int
@@ -79,9 +79,9 @@ type Pokemon struct {
 	SeenType                *string
 	Shiny                   *bool
 	Username                *string
-	Capture1                *float32
-	Capture2                *float32
-	Capture3                *float32
+	Capture1                *float32 `gorm:"column:capture_1"`
+	Capture2                *float32 `gorm:"column:capture_2"`
+	Capture3                *float32 `gorm:"column:capture_2"`
 	Pvp                     *string
 	IsEvent                 int
 	IV                      *float32
