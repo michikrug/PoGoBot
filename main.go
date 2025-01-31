@@ -465,7 +465,7 @@ func main() {
 
 			// Fetch current Pokémon encounters
 			var encounters []Pokemon
-			if err := dbEncounters.Where("updated > ?", now).Where("expire_timestamp > ?", now).Find(&encounters).Error; err != nil {
+			if err := dbEncounters.Where("iv IS NOT NULL").Where("updated > ?", now).Where("expire_timestamp > ?", now).Find(&encounters).Error; err != nil {
 				log.Printf("❌ Failed to fetch Pokémon encounters: %v", err)
 			} else {
 				log.Printf("✅ Found %d Pokémon", len(encounters))
