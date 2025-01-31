@@ -331,7 +331,7 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	expireTime := time.Unix(int64(*encounter.ExpireTimestamp), 0).In(timezone)
 	timeLeft := time.Until(expireTime)
 
-	distance := haversine(user.Latitude, user.Longitude, encounter.Lat, encounter.Lon)
+	distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
 	sendNotification(bot, user.ID, fmt.Sprintf("*🔔 %s %s %.1f%% (%d | %d | %d) 📍 %.2fm*\n💨 %s ⏳ %s\n💥 %s / %s",
 		pokemonIDToName[user.Language][strconv.Itoa(encounter.PokemonId)],
 		genderSymbol,
