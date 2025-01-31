@@ -24,8 +24,7 @@ WORKDIR /app
 # Copy the compiled Go binary from the builder stage
 COPY --from=builder /app/bot .
 
-COPY pokemon_de.json pokemon_de.json
-COPY pokemon_en.json pokemon_en.json
+COPY *.json ./
 
 USER nobody
 
