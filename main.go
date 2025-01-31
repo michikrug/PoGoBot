@@ -18,14 +18,14 @@ import (
 
 // Models
 type User struct {
-	ID        int64  `gorm:"primaryKey"`
-	Notify    bool   `gorm:"default:true"`
-	Language  string `gorm:"default:'de'"`
-	Stickers  bool   `gorm:"default:true"`
-	Cleanup   bool   `gorm:"default:true"`
-	Latitude  float32
-	Longitude float32
-	Distance  float32
+	ID        int64   `gorm:"primaryKey"`
+	Notify    bool    `gorm:"default:true"`
+	Language  string  `gorm:"default:'de'"`
+	Stickers  bool    `gorm:"default:true"`
+	Cleanup   bool    `gorm:"default:true"`
+	Latitude  float32 `gorm:"default:0"`
+	Longitude float32 `gorm:"default:0"`
+	Distance  float32 `gorm:"default:0"`
 	HundoIV   bool    `gorm:"default:false"`
 	ZeroIV    bool    `gorm:"default:false"`
 	MinIV     float32 `gorm:"default:0"`
@@ -331,20 +331,32 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	expireTime := time.Unix(int64(*encounter.ExpireTimestamp), 0).In(timezone)
 	timeLeft := time.Until(expireTime)
 
-	distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-	sendNotification(bot, user.ID, fmt.Sprintf("*🔔 %s %s %.1f%% (%d | %d | %d) 📍 %.2fm*\n💨 %s ⏳ %s\n💥 %s / %s",
+	var notificationText strings.Builder
+	notificationText.WriteString(fmt.Sprintf("*🔔 %s %s %.1f%% %d|%d|%d %dCP L%d*\n",
 		pokemonIDToName[user.Language][strconv.Itoa(encounter.PokemonId)],
 		genderSymbol,
 		*encounter.IV,
 		*encounter.AtkIV,
 		*encounter.DefIV,
 		*encounter.StaIV,
-		distance,
+		*encounter.Cp,
+		*encounter.Level,
+	))
+
+	if user.Latitude != 0 && user.Longitude != 0 {
+		notificationText.WriteString(fmt.Sprintf("📍 %.0fm\n",
+			haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))))
+	}
+
+	notificationText.WriteString(fmt.Sprintf("💨 %s\n⏳ %s\n",
 		expireTime.Format(time.TimeOnly),
-		timeLeft.Truncate(time.Second).String(),
+		timeLeft.Truncate(time.Second).String()))
+
+	notificationText.WriteString(fmt.Sprintf("💥 %s / %s",
 		moveIDToName[user.Language][strconv.Itoa(*encounter.Move1)],
-		moveIDToName[user.Language][strconv.Itoa(*encounter.Move2)],
-	), *encounter.ExpireTimestamp)
+		moveIDToName[user.Language][strconv.Itoa(*encounter.Move2)]))
+
+	sendNotification(bot, user.ID, notificationText.String(), *encounter.ExpireTimestamp)
 }
 
 func FilterUsersWithHundoIV(users map[int64]User) []User {
@@ -481,7 +493,6 @@ func main() {
 	})
 
 	bot.Handle("/language", func(c telebot.Context) error {
-		// userLang := c.Sender().LanguageCode
 		args := c.Args()
 		if len(args) < 1 {
 			return c.Reply("Usage: /language <en|de>")
@@ -504,11 +515,36 @@ func main() {
 		userID := c.Sender().ID
 		location := c.Message().Location
 
-		dbConfig.Save(&User{ID: userID, Latitude: location.Lat, Longitude: location.Lng})
+		dbConfig.Model(&User{}).Where("id = ?", userID).Updates(User{Latitude: location.Lat, Longitude: location.Lng})
 
 		getUsers()
 
 		return c.Reply("📍 Location updated! Your preferences will now consider this.")
+	})
+
+	bot.Handle("/start", func(c telebot.Context) error {
+		telegramID := c.Sender().ID
+		userLang := c.Sender().LanguageCode // Auto-detect Telegram locale
+
+		// Only support known languages, default to English
+		if userLang != "en" && userLang != "de" {
+			userLang = "en"
+		}
+
+		// Save user preference (language & default location)
+		dbConfig.FirstOrCreate(&User{ID: telegramID}, User{Language: userLang})
+
+		// Welcome message
+		startMessage := fmt.Sprintf(
+			"👋 Welcome to the Pokémon Notification Bot!\n\n"+
+				"🔹 Language detected: *%s*\n"+
+				"🔹 Send me your 📍 *location* to enable area-based notifications.\n"+
+				"✅ Use /language <en|de> to set your preferred language.\n"+
+				"✅ Use /subscribe <pokemon_name> <min_iv> to get notified about Pokémon!",
+			userLang,
+		)
+
+		return c.Reply(startMessage, telebot.ModeMarkdown)
 	})
 
 	// Background process to match encounters with subscriptions
