@@ -88,12 +88,12 @@ type Pokemon struct {
 }
 
 var (
-	dbConfig        *gorm.DB // Stores user subscriptions
-	dbEncounters    *gorm.DB // Fetches Pokémon encounters
-	users           map[int64]User
-	subscriptions   map[int][]Subscription
-	pokemonNameToID map[string]int
-	pokemonIDToName map[string]map[string]string // Language → (Name → ID)
+	dbConfig         *gorm.DB // Stores user subscriptions
+	dbEncounters     *gorm.DB // Fetches Pokémon encounters
+	allUsers         map[int64]User
+	allSubscriptions map[int][]Subscription
+	pokemonNameToID  map[string]int
+	pokemonIDToName  map[string]map[string]string // Language → (Name → ID)
 )
 
 func (Pokemon) TableName() string {
@@ -195,41 +195,45 @@ func getPokemonID(name string) (int, error) {
 }
 
 // Subscribe User
-func subscribeUser(userID int64, pokemonID int, minIV float32) {
+func addSubscription(userID int64, pokemonID int, minIV float32) {
 	var user User
 	dbConfig.FirstOrCreate(&user, User{ID: userID})
 
 	// Encode filters as JSON
 	filters := fmt.Sprintf(`{"min_iv": %.2f}`, minIV)
 
-	sub := Subscription{UserID: user.ID, PokemonID: pokemonID, Filters: filters}
-	dbConfig.Create(&sub)
+	newSub := Subscription{UserID: user.ID, PokemonID: pokemonID, Filters: filters}
+	var existingSub Subscription
+	if err := dbConfig.Where("user_id = ? AND pokemon_id = ?", userID, pokemonID).First(&existingSub).Error; err != nil {
+		// If subscription does not exist, create a new one
+		dbConfig.Create(&newSub)
+	} else {
+		// If subscription exists, update the filters
+		existingSub.Filters = filters
+		dbConfig.Save(&existingSub)
+	}
 }
 
 // Get Subscriptions
-func getSubscriptions() map[int][]Subscription {
+func getSubscriptions() {
 	var subs []Subscription
 	dbConfig.Find(&subs)
 
-	subMap := make(map[int][]Subscription)
+	allSubscriptions = make(map[int][]Subscription)
 	for _, sub := range subs {
-		subMap[sub.PokemonID] = append(subMap[sub.PokemonID], sub)
+		allSubscriptions[sub.PokemonID] = append(allSubscriptions[sub.PokemonID], sub)
 	}
-
-	return subMap
 }
 
 // Get Users
-func getUsers() map[int64]User {
+func getUsers() {
 	var users []User
 	dbConfig.Find(&users)
 
-	userMap := make(map[int64]User)
+	allUsers = make(map[int64]User)
 	for _, user := range users {
-		userMap[user.ID] = user
+		allUsers[user.ID] = user
 	}
-
-	return userMap
 }
 
 func sendNotification(bot *telebot.Bot, UserID int64, Text string, Expiration int) {
@@ -292,10 +296,10 @@ func main() {
 	initDB()
 
 	// Load users into a map
-	users = getUsers()
+	getUsers()
 
 	// Load subscriptions into a map
-	subscriptions = getSubscriptions()
+	getSubscriptions()
 
 	telegramBotToken := os.Getenv("BOT_TOKEN")
 	pref := telebot.Settings{
@@ -316,22 +320,43 @@ func main() {
 		}
 
 		pokemonName := args[0]
-		// Convert Pokémon name to ID
 		pokemonID, err := getPokemonID(pokemonName)
+		if err != nil {
+			return c.Reply(fmt.Sprintf("Can't find Pokedex # for Pokémon: %s", pokemonName))
+		}
 
 		minIV := float32(0)
 		if len(args) > 1 {
 			fmt.Sscanf(args[1], "%f", &minIV)
 		}
 
+		addSubscription(c.Sender().ID, pokemonID, minIV)
+
+		getUsers()
+		getSubscriptions()
+
 		var user User
 		dbConfig.First(&user, c.Sender().ID)
-
-		subscribeUser(c.Sender().ID, pokemonID, minIV)
-		if err != nil {
-			return c.Reply(err.Error())
-		}
 		return c.Reply(fmt.Sprintf("Subscribed to %s (Min IV: %.2f)", pokemonIDToName[user.Language][strconv.Itoa(pokemonID)], minIV))
+	})
+
+	// /list
+	bot.Handle("/list", func(c telebot.Context) error {
+		userID := c.Sender().ID
+		var subs []Subscription
+		dbConfig.Where("user_id = ?", userID).Find(&subs)
+
+		if len(subs) == 0 {
+			return c.Reply("You have no subscriptions.")
+		}
+
+		var text strings.Builder
+		for _, sub := range subs {
+			var filters map[string]float32
+			json.Unmarshal([]byte(sub.Filters), &filters)
+			text.WriteString(fmt.Sprintf("Subscribed to %s (Min IV: %.2f)\n", pokemonIDToName[allUsers[userID].Language][strconv.Itoa(sub.PokemonID)], filters["min_iv"]))
+		}
+		return c.Reply(text.String())
 	})
 
 	// /unsubscribe <pokemon_name>
@@ -341,16 +366,22 @@ func main() {
 			return c.Reply("Usage: /unsubscribe <pokemon_name>")
 		}
 
-		pokemon := args[0]
-		pokemonID, err := getPokemonID(pokemon)
+		pokemonName := args[0]
+		pokemonID, err := getPokemonID(pokemonName)
 		if err != nil {
-			return c.Reply(err.Error())
+			return c.Reply(fmt.Sprintf("Can't find Pokedex # for Pokémon: %s", pokemonName))
 		}
 
 		userID := c.Sender().ID
 		dbConfig.Where("user_id = ? AND pokemon_id = ?", userID, pokemonID).Delete(&Subscription{})
 
-		return c.Reply(fmt.Sprintf("Unsubscribed from %s alerts", pokemon))
+		var user User
+		dbConfig.FirstOrCreate(&user, User{ID: userID})
+
+		getUsers()
+		getSubscriptions()
+
+		return c.Reply(fmt.Sprintf("Unsubscribed from %s alerts", pokemonIDToName[user.Language][strconv.Itoa(pokemonID)]))
 	})
 
 	bot.Handle("/language", func(c telebot.Context) error {
@@ -368,6 +399,8 @@ func main() {
 		userID := c.Sender().ID
 		dbConfig.Save(&User{ID: userID, Language: lang})
 
+		getUsers()
+
 		return c.Reply(fmt.Sprintf("✅ Language set to %s", lang))
 	})
 
@@ -384,7 +417,7 @@ func main() {
 			} else {
 				log.Printf("🗑️ Found %d expired messages", len(messages))
 				for _, message := range messages {
-					user := users[message.ChatID]
+					user := allUsers[message.ChatID]
 					if user.Cleanup {
 						bot.Delete(&telebot.StoredMessage{MessageID: message.MessageID, ChatID: message.ChatID})
 					}
@@ -403,26 +436,26 @@ func main() {
 				for _, encounter := range encounters {
 					// Check for 100% IV Pokémon
 					if encounter.IV != nil && *encounter.IV == 100 {
-						filteredUsers := FilterUsersWithHundoIV(users)
+						filteredUsers := FilterUsersWithHundoIV(allUsers)
 						for _, user := range filteredUsers {
 							sendEncounterNotification(bot, user, encounter)
 						}
 					}
 					// Check for 0% IV Pokémon
 					if encounter.IV != nil && *encounter.IV == 0 {
-						filteredUsers := FilterUsersWithZeroIV(users)
+						filteredUsers := FilterUsersWithZeroIV(allUsers)
 						for _, user := range filteredUsers {
 							sendEncounterNotification(bot, user, encounter)
 						}
 					}
 					// Check for subscribed Pokémon
-					if subs, exists := subscriptions[encounter.PokemonId]; exists {
+					if subs, exists := allSubscriptions[encounter.PokemonId]; exists {
 						for _, sub := range subs {
 							var filters map[string]float32
 							json.Unmarshal([]byte(sub.Filters), &filters)
 
 							if encounter.IV != nil && *encounter.IV >= filters["min_iv"] {
-								sendEncounterNotification(bot, users[sub.UserID], encounter)
+								sendEncounterNotification(bot, allUsers[sub.UserID], encounter)
 							}
 						}
 					}
