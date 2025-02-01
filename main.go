@@ -423,9 +423,9 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 
 func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 	// Create interactive buttons
-	notificationsText := "🔔 Disable Notifications"
+	notificationsText := "🔔 Disable all Notifications"
 	if !user.Notify {
-		notificationsText = "🔕 Enable Notifications"
+		notificationsText = "🔕 Enable all Notifications"
 	}
 	btnToggleNotifications := telebot.InlineButton{Text: notificationsText, Unique: "toggle_notifications"}
 	btnChangeLanguage := telebot.InlineButton{Text: "🌍 Change Language (Pokémon & Moves)", Unique: "change_lang"}
@@ -623,35 +623,40 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_notifications"}, func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
-		updateUserPreference(user.ID, "Notify", !user.Notify)
+		user.Notify = !user.Notify
+		updateUserPreference(user.ID, "Notify", user.Notify)
 		settingsMessage, replyMarkup := buildSettings(user)
 		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_stickers"}, func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
-		updateUserPreference(user.ID, "Stickers", !user.Stickers)
+		user.Stickers = !user.Stickers
+		updateUserPreference(user.ID, "Stickers", user.Stickers)
 		settingsMessage, replyMarkup := buildSettings(user)
 		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_hundo_iv"}, func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
-		updateUserPreference(user.ID, "HundoIV", !user.HundoIV)
+		user.HundoIV = !user.HundoIV
+		updateUserPreference(user.ID, "HundoIV", user.HundoIV)
 		settingsMessage, replyMarkup := buildSettings(user)
 		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_zero_iv"}, func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
-		updateUserPreference(user.ID, "ZeroIV", !user.ZeroIV)
+		user.ZeroIV = !user.ZeroIV
+		updateUserPreference(user.ID, "ZeroIV", user.ZeroIV)
 		settingsMessage, replyMarkup := buildSettings(user)
 		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_cleanup"}, func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
-		updateUserPreference(user.ID, "Cleanup", !user.Cleanup)
+		user.Cleanup = !user.Cleanup
+		updateUserPreference(user.ID, "Cleanup", user.Cleanup)
 		settingsMessage, replyMarkup := buildSettings(user)
 		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
