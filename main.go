@@ -32,11 +32,22 @@ type User struct {
 	MinLevel  int     `gorm:"default:0"`
 }
 
+type FilteredUsers struct {
+	AllUsers     map[int64]User
+	HundoIVUsers []User
+	ZeroIVUsers  []User
+}
+
 type Subscription struct {
 	ID        int    `gorm:"primaryKey"`
 	UserID    int64  `gorm:"index"`
 	PokemonID int    `gorm:"index"`
 	Filters   string `gorm:"type:json"` // {"min_iv": 0.0, "min_level": 1, "max_distance": 100}
+}
+
+type FilteredSubscriptions struct {
+	AllSubscriptions    map[int][]Subscription
+	ActiveSubscriptions map[int][]Subscription
 }
 
 type Message struct {
@@ -89,15 +100,21 @@ type Pokemon struct {
 }
 
 var (
-	dbConfig         *gorm.DB // Stores user subscriptions
-	dbEncounters     *gorm.DB // Fetches Pokémon encounters
-	userStates       map[int64]string
-	allUsers         map[int64]User
-	allSubscriptions map[int][]Subscription
-	pokemonNameToID  map[string]int
-	pokemonIDToName  map[string]map[string]string
-	moveIDToName     map[string]map[string]string
-	timezone         *time.Location // Local timezone
+	dbConfig              *gorm.DB // Stores user subscriptions
+	dbEncounters          *gorm.DB // Fetches Pokémon encounters
+	userStates            map[int64]string
+	filteredUsers         FilteredUsers
+	filteredSubscriptions FilteredSubscriptions
+	notifiedEncounters    map[int64]map[string]struct{}
+	pokemonNameToID       map[string]int
+	pokemonIDToName       map[string]map[string]string
+	moveIDToName          map[string]map[string]string
+	timezone              *time.Location // Local timezone
+	gender                = map[int]string{
+		1: "\u2642", // Male
+		2: "\u2640", // Female
+		3: "\u26b2", // Genderless
+	}
 )
 
 func (Pokemon) TableName() string {
@@ -244,15 +261,24 @@ func getPokemonID(name string) (int, error) {
 	return pokemonID, nil
 }
 
-// Subscribe User
-func addSubscription(userID int64, pokemonID int, minIV int, minLevel int, maxDistance int) {
+// Ensure consistency in user preferences
+func getUserPreferences(userID int64) User {
 	var user User
 	dbConfig.FirstOrCreate(&user, User{ID: userID})
+	return user
+}
 
+func updateUserPreference(userID int64, field string, value interface{}) {
+	dbConfig.Model(&User{}).Where("id = ?", userID).Update(field, value)
+	getUsersByFilters()
+}
+
+// Subscribe User
+func addSubscription(userID int64, pokemonID int, minIV int, minLevel int, maxDistance int) {
 	// Encode filters as JSON
 	filters := fmt.Sprintf(`{"min_iv": %d, "min_level": %d, "max_distance": %d}`, minIV, minLevel, maxDistance)
 
-	newSub := Subscription{UserID: user.ID, PokemonID: pokemonID, Filters: filters}
+	newSub := Subscription{UserID: userID, PokemonID: pokemonID, Filters: filters}
 	var existingSub Subscription
 	if err := dbConfig.Where("user_id = ? AND pokemon_id = ?", userID, pokemonID).First(&existingSub).Error; err != nil {
 		// If subscription does not exist, create a new one
@@ -262,27 +288,48 @@ func addSubscription(userID int64, pokemonID int, minIV int, minLevel int, maxDi
 		existingSub.Filters = filters
 		dbConfig.Save(&existingSub)
 	}
+	getSubscriptionsByFilters()
 }
 
-// Get Subscriptions
-func getSubscriptions() {
-	var subs []Subscription
-	dbConfig.Find(&subs)
+func getUsersByFilters() {
+	filteredUsers = FilteredUsers{
+		AllUsers:     make(map[int64]User),
+		HundoIVUsers: []User{},
+		ZeroIVUsers:  []User{},
+	}
 
-	allSubscriptions = make(map[int][]Subscription)
-	for _, sub := range subs {
-		allSubscriptions[sub.PokemonID] = append(allSubscriptions[sub.PokemonID], sub)
+	var users []User
+	dbConfig.Find(&users)
+	for _, user := range users {
+		filteredUsers.AllUsers[user.ID] = user
+	}
+
+	for _, user := range filteredUsers.AllUsers {
+		if user.Notify {
+			if user.HundoIV {
+				filteredUsers.HundoIVUsers = append(filteredUsers.HundoIVUsers, user)
+			}
+			if user.ZeroIV {
+				filteredUsers.ZeroIVUsers = append(filteredUsers.ZeroIVUsers, user)
+			}
+
+		}
 	}
 }
 
-// Get Users
-func getUsers() {
-	var users []User
-	dbConfig.Find(&users)
+func getSubscriptionsByFilters() {
+	filteredSubscriptions = FilteredSubscriptions{
+		AllSubscriptions:    make(map[int][]Subscription),
+		ActiveSubscriptions: make(map[int][]Subscription),
+	}
 
-	allUsers = make(map[int64]User)
-	for _, user := range users {
-		allUsers[user.ID] = user
+	var subscriptions []Subscription
+	dbConfig.Find(&subscriptions)
+	for _, subscription := range subscriptions {
+		filteredSubscriptions.AllSubscriptions[subscription.PokemonID] = append(filteredSubscriptions.AllSubscriptions[subscription.PokemonID], subscription)
+		if filteredUsers.AllUsers[subscription.UserID].Notify {
+			filteredSubscriptions.ActiveSubscriptions[subscription.PokemonID] = append(filteredSubscriptions.ActiveSubscriptions[subscription.PokemonID], subscription)
+		}
 	}
 }
 
@@ -306,7 +353,7 @@ func sendLocation(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Expi
 	}
 }
 
-func sendNotification(bot *telebot.Bot, UserID int64, Text string, Expiration int) {
+func sendMessage(bot *telebot.Bot, UserID int64, Text string, Expiration int) {
 	message, err := bot.Send(&telebot.User{ID: UserID}, Text, telebot.ModeMarkdown)
 	if err != nil {
 		log.Printf("❌ Failed to send message: %v", err)
@@ -317,11 +364,10 @@ func sendNotification(bot *telebot.Bot, UserID int64, Text string, Expiration in
 }
 
 func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
-	gender := map[int]string{
-		1: "\u2642", // Male
-		2: "\u2640", // Female
-		3: "\u26b2", // Genderless
+	if _, alreadySent := notifiedEncounters[user.ID][encounter.Id]; alreadySent {
+		return
 	}
+
 	genderSymbol := gender[*encounter.Gender]
 
 	var url = fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d.webp", encounter.PokemonId)
@@ -363,71 +409,11 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 		moveIDToName[user.Language][strconv.Itoa(*encounter.Move1)],
 		moveIDToName[user.Language][strconv.Itoa(*encounter.Move2)]))
 
-	sendNotification(bot, user.ID, notificationText.String(), *encounter.ExpireTimestamp)
+	sendMessage(bot, user.ID, notificationText.String(), *encounter.ExpireTimestamp)
+	notifiedEncounters[user.ID][encounter.Id] = struct{}{}
 }
 
-func FilterUsersWithHundoIV(users map[int64]User) []User {
-	var filteredUsers []User
-	for _, user := range users {
-		if user.HundoIV {
-			filteredUsers = append(filteredUsers, user)
-		}
-	}
-	return filteredUsers
-}
-
-func FilterUsersWithZeroIV(users map[int64]User) []User {
-	var filteredUsers []User
-	for _, user := range users {
-		if user.ZeroIV {
-			filteredUsers = append(filteredUsers, user)
-		}
-	}
-	return filteredUsers
-}
-
-func main() {
-	// Load .env file
-	if err := godotenv.Load(); err != nil {
-		log.Println("⚠️ No .env file found, using system environment variables")
-	}
-	// Required environment variables
-	requiredVars := []string{
-		"BOT_TOKEN", "BOT_DB_USER", "BOT_DB_PASS", "BOT_DB_NAME", "BOT_DB_HOST",
-		"ENCOUNTER_DB_USER", "ENCOUNTER_DB_PASS", "ENCOUNTER_DB_NAME", "ENCOUNTER_DB_HOST",
-	}
-	checkEnvVars(requiredVars)
-
-	// Load Pokémon mappings
-	loadAllLanguages()
-
-	// Initialize databases
-	initDB()
-
-	// Load users into a map
-	getUsers()
-
-	// Load subscriptions into a map
-	getSubscriptions()
-
-	userStates = make(map[int64]string)
-
-	var err error
-	if timezone, err = time.LoadLocation("Local"); err != nil {
-		log.Printf("❌ Failed to load local timezone: %v", err)
-		timezone = time.UTC
-	}
-
-	telegramBotToken := os.Getenv("BOT_TOKEN")
-	pref := telebot.Settings{
-		Token:  telegramBotToken,
-		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
-	}
-
-	bot, err := telebot.NewBot(pref)
-	if err != nil {
-		log.Fatal(err)
-	}
+func setupBotHandlers(bot *telebot.Bot) {
 
 	// /subscribe <pokemon_name> [min_iv]
 	bot.Handle("/subscribe", func(c telebot.Context) error {
@@ -448,49 +434,54 @@ func main() {
 		if len(args) > 1 {
 			minIV, err = strconv.Atoi(args[1])
 			if err != nil {
-				return c.Reply("Invalid IV value. Please provide a valid number between 0-100.")
+				return c.Reply("❌ Invalid IV input! Please enter a valid IV percentage (0-100).")
 			}
 		}
 		if len(args) > 2 {
 			minLevel, err = strconv.Atoi(args[2])
 			if err != nil {
-				return c.Reply("Invalid level value. Please provide a valid number between 0-40.")
+				return c.Reply("❌ Invalid level input! Please enter a valid level (0-40).")
 			}
 		}
 		if len(args) > 3 {
 			maxDistance, err = strconv.Atoi(args[3])
 			if err != nil {
-				return c.Reply("Invalid distance value. Please provide a valid number.")
+				return c.Reply("❌ Invalid distance input! Please enter a valid distance in m.")
 			}
 		}
 
-		addSubscription(c.Sender().ID, pokemonID, minIV, minLevel, maxDistance)
+		userID := c.Sender().ID
+		addSubscription(userID, pokemonID, minIV, minLevel, maxDistance)
 
-		getUsers()
-		getSubscriptions()
-
-		var user User
-		dbConfig.First(&user, c.Sender().ID)
-		return c.Reply(fmt.Sprintf("Subscribed to %s (Min IV: %d)", pokemonIDToName[user.Language][strconv.Itoa(pokemonID)], minIV))
+		user := getUserPreferences(userID)
+		return c.Reply(fmt.Sprintf("Subscribed to %s alerts (Min IV: %d%%, Min Level: %d, Max Distance: %dm)",
+			pokemonIDToName[user.Language][strconv.Itoa(pokemonID)],
+			minIV, minLevel, maxDistance,
+		))
 	})
 
 	// /list
 	bot.Handle("/list", func(c telebot.Context) error {
-		userID := c.Sender().ID
+		user := getUserPreferences(c.Sender().ID)
+
 		var subs []Subscription
-		dbConfig.Where("user_id = ?", userID).Find(&subs)
+		dbConfig.Where("user_id = ?", user.ID).Find(&subs)
 
 		if len(subs) == 0 {
 			return c.Reply("You have no subscriptions.")
 		}
 
 		var text strings.Builder
+		text.WriteString("📋 *Your Subscriptions:*\n\n")
 		for _, sub := range subs {
 			var filters map[string]int
 			json.Unmarshal([]byte(sub.Filters), &filters)
-			text.WriteString(fmt.Sprintf("Subscribed to %s (Min IV: %d)\n", pokemonIDToName[allUsers[userID].Language][strconv.Itoa(sub.PokemonID)], filters["min_iv"]))
+			text.WriteString(fmt.Sprintf("🔹 %s (Min IV: %d%%, Min Level: %d, Max Distance: %dm)\n",
+				pokemonIDToName[user.Language][strconv.Itoa(sub.PokemonID)],
+				filters["min_iv"], filters["min_level"], filters["max_distance"],
+			))
 		}
-		return c.Reply(text.String())
+		return c.Reply(text.String(), telebot.ModeMarkdown)
 	})
 
 	// /unsubscribe <pokemon_name>
@@ -509,11 +500,9 @@ func main() {
 		userID := c.Sender().ID
 		dbConfig.Where("user_id = ? AND pokemon_id = ?", userID, pokemonID).Delete(&Subscription{})
 
-		var user User
-		dbConfig.FirstOrCreate(&user, User{ID: userID})
+		getSubscriptionsByFilters()
 
-		getUsers()
-		getSubscriptions()
+		user := getUserPreferences(userID)
 
 		return c.Reply(fmt.Sprintf("Unsubscribed from %s alerts", pokemonIDToName[user.Language][strconv.Itoa(pokemonID)]))
 	})
@@ -522,22 +511,20 @@ func main() {
 		userID := c.Sender().ID
 		location := c.Message().Location
 
-		dbConfig.Model(&User{}).Where("id = ?", userID).Updates(User{Latitude: location.Lat, Longitude: location.Lng})
-
-		getUsers()
+		updateUserPreference(userID, "Latitude", location.Lat)
+		updateUserPreference(userID, "Longitude", location.Lng)
 
 		return c.Reply("📍 Location updated! Your preferences will now consider this.")
 	})
 
 	bot.Handle("/start", func(c telebot.Context) error {
-		var user User
-		dbConfig.FirstOrCreate(&user, User{ID: c.Sender().ID})
+		user := getUserPreferences(c.Sender().ID)
 
 		lang := c.Sender().LanguageCode // Auto-detect Telegram locale
 		if lang != "en" && lang != "de" {
 			lang = "en"
 		}
-		dbConfig.Model(&user).Updates(User{Language: lang})
+		updateUserPreference(user.ID, "Language", lang)
 
 		// Create a location request button
 		btnShareLocation := telebot.ReplyButton{
@@ -562,37 +549,98 @@ func main() {
 	})
 
 	bot.Handle("/settings", func(c telebot.Context) error {
-		var user User
-		dbConfig.FirstOrCreate(&user, User{ID: c.Sender().ID})
+		user := getUserPreferences(c.Sender().ID)
 
 		// Create interactive buttons
+		btnToggleNotifications := telebot.InlineButton{Text: "🔔 Toggle Notifications", Unique: "toggle_notifications"}
 		btnChangeLanguage := telebot.InlineButton{Text: "🌍 Change Language (for Pokémon and Moves)", Unique: "change_lang"}
 		btnUpdateLocation := telebot.InlineButton{Text: "📍 Update Location", Unique: "update_location"}
 		btnSetDistance := telebot.InlineButton{Text: "📏 Set Max Distance", Unique: "set_distance"}
 		btnSetMinIV := telebot.InlineButton{Text: "✨ Set Min IV", Unique: "set_min_iv"}
 		btnSetMinLevel := telebot.InlineButton{Text: "🔢 Set Min Level", Unique: "set_min_level"}
+		btnToggleStickers := telebot.InlineButton{Text: "🎭 Toggle Pokémon Stickers", Unique: "toggle_stickers"}
+		btnToogleHundoIV := telebot.InlineButton{Text: "💯 Toggle 100% IV Notifications", Unique: "toggle_hundo_iv"}
+		btnToogleZeroIV := telebot.InlineButton{Text: "🚫 Toggle 0% IV Notifications", Unique: "toggle_zero_iv"}
+		btnToggleCleanup := telebot.InlineButton{Text: "🗑️ Toggle Cleanup Expired Notifications", Unique: "toggle_cleanup"}
 
 		// Settings message
 		settingsMessage := fmt.Sprintf(
-			"⚙️ *Your Settings:*\n\n"+
+			"⚙️ *Your Settings:*\n"+
+				"----------------------------------------------\n"+
+				"🔔 *Notifications:* %t\n"+
 				"🌍 *Language (for Pokémon and Moves):* %s\n"+
 				"📍 *Location:* %.5f, %.5f\n"+
-				"📏 *Max Distance:* %d m\n"+
+				"📏 *Max Distance:* %dm\n"+
 				"✨ *Min IV:* %d%%\n"+
-				"🔢 *Min Level:* %d\n\n"+
+				"🔢 *Min Level:* %d\n"+
+				"🎭 *Pokémon Stickers:* %t\n"+
+				"💯 *100%% IV Notifications:* %t\n"+
+				"🚫 *0%% IV Notifications:* %t\n"+
+				"🗑️ *Cleanup Expired Notifications:* %t\n\n"+
 				"Use the buttons below to update your settings.",
-			user.Language, user.Latitude, user.Longitude, user.Distance, user.MinIV, user.MinLevel,
+			user.Notify, user.Language, user.Latitude, user.Longitude, user.Distance,
+			user.MinIV, user.MinLevel, user.Stickers, user.HundoIV, user.ZeroIV, user.Cleanup,
 		)
 
 		return c.Reply(settingsMessage, &telebot.ReplyMarkup{
 			InlineKeyboard: [][]telebot.InlineButton{
+				{btnToggleNotifications},
 				{btnChangeLanguage},
 				{btnUpdateLocation},
 				{btnSetDistance},
 				{btnSetMinIV},
 				{btnSetMinLevel},
+				{btnToggleStickers},
+				{btnToogleHundoIV},
+				{btnToogleZeroIV},
+				{btnToggleCleanup},
 			},
 		}, telebot.ModeMarkdown)
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "toggle_notifications"}, func(c telebot.Context) error {
+		user := getUserPreferences(c.Sender().ID)
+		updateUserPreference(user.ID, "Notify", !user.Notify)
+		if !user.Notify {
+			return c.Reply("🔕 Notifications disabled! Use /settings to re-enable.")
+		}
+		return c.Reply("🔔 Notifications enabled!")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "toggle_stickers"}, func(c telebot.Context) error {
+		user := getUserPreferences(c.Sender().ID)
+		updateUserPreference(user.ID, "Stickers", !user.Stickers)
+		if !user.Stickers {
+			return c.Reply("🎭 Pokémon Sstickers disabled! Use /settings to re-enable.")
+		}
+		return c.Reply("🎭 Pokémon Stickers enabled!")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "toggle_hundo_iv"}, func(c telebot.Context) error {
+		user := getUserPreferences(c.Sender().ID)
+		updateUserPreference(user.ID, "HundoIV", !user.HundoIV)
+		if !user.HundoIV {
+			return c.Reply("💯 100% IV Notifications disabled! Use /settings to re-enable.")
+		}
+		return c.Reply("💯 100% IV Notifications enabled!")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "toggle_zero_iv"}, func(c telebot.Context) error {
+		user := getUserPreferences(c.Sender().ID)
+		updateUserPreference(user.ID, "ZeroIV", !user.ZeroIV)
+		if !user.ZeroIV {
+			return c.Reply("🚫 0% IV Notifications disabled! Use /settings to re-enable.")
+		}
+		return c.Reply("🚫 0% IV Notifications enabled!")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "toggle_cleanup"}, func(c telebot.Context) error {
+		user := getUserPreferences(c.Sender().ID)
+		updateUserPreference(user.ID, "Cleanup", !user.Cleanup)
+		if !user.Cleanup {
+			return c.Reply("🗑️ Cleanup Expired Notifications disabled! Use /settings to re-enable.")
+		}
+		return c.Reply("🗑️ Cleanup Expired Notifications enabled!")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "change_lang"}, func(c telebot.Context) error {
@@ -606,14 +654,15 @@ func main() {
 
 	// Handle setting language
 	bot.Handle(&telebot.InlineButton{Unique: "set_lang_en"}, func(c telebot.Context) error {
-		dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Update("language", "en")
-		return c.Edit("✅ Language set to *English*", telebot.ModeMarkdown)
+		updateUserPreference(c.Sender().ID, "Language", "en")
+		return c.Edit("✅ Language (for Pokémon and Moves) set to *English*", telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "set_lang_de"}, func(c telebot.Context) error {
-		dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Update("language", "de")
-		return c.Edit("✅ Sprache auf *Deutsch* geändert", telebot.ModeMarkdown)
+		updateUserPreference(c.Sender().ID, "Language", "de")
+		return c.Edit("✅ Language (for Pokémon and Moves) set to *Deutsch*", telebot.ModeMarkdown)
 	})
+
 	bot.Handle(&telebot.InlineButton{Unique: "update_location"}, func(c telebot.Context) error {
 		// Prompt user to send location
 		btnShareLocation := telebot.ReplyButton{
@@ -630,7 +679,8 @@ func main() {
 	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
 		location := c.Message().Location
 		// Update user location in the database
-		dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Updates(User{Latitude: location.Lat, Longitude: location.Lng})
+		updateUserPreference(c.Sender().ID, "Latitude", location.Lat)
+		updateUserPreference(c.Sender().ID, "Longitude", location.Lng)
 		return c.Reply("✅ Location updated!")
 	})
 
@@ -651,7 +701,8 @@ func main() {
 
 	// Handle text input for max distance
 	bot.Handle(telebot.OnText, func(c telebot.Context) error {
-		if userStates[c.Sender().ID] == "set_distance" {
+		userID := c.Sender().ID
+		if userStates[userID] == "set_distance" {
 			var maxDistance int
 
 			// Parse user input
@@ -661,13 +712,13 @@ func main() {
 			}
 
 			// Update max distance in the database
-			dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Update("distance", maxDistance)
+			updateUserPreference(userID, "Distance", maxDistance)
 
-			userStates[c.Sender().ID] = ""
+			userStates[userID] = ""
 
 			return c.Reply(fmt.Sprintf("✅ Max distance updated to %dm!", maxDistance))
 		}
-		if userStates[c.Sender().ID] == "set_min_iv" {
+		if userStates[userID] == "set_min_iv" {
 			var minIV int
 
 			// Parse user input
@@ -677,110 +728,174 @@ func main() {
 			}
 
 			// Update min IV in the database
-			dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Update("min_iv", minIV)
+			updateUserPreference(userID, "MinIV", minIV)
 
-			userStates[c.Sender().ID] = ""
+			userStates[userID] = ""
 
 			return c.Reply(fmt.Sprintf("✅ Minimum IV updated to %d%%!", minIV))
 		}
-		if userStates[c.Sender().ID] == "set_min_level" {
+		if userStates[userID] == "set_min_level" {
 			var minLevel int
 
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &minLevel)
 			if err != nil || minLevel < 0 || minLevel > 40 {
-				return c.Reply("❌ Invalid input! Please enter a valid level (1-40).")
+				return c.Reply("❌ Invalid input! Please enter a valid level (0-40).")
 			}
 
 			// Update min IV in the database
-			dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Update("min_level", minLevel)
+			updateUserPreference(userID, "MinLevel", minLevel)
 
-			userStates[c.Sender().ID] = ""
+			userStates[userID] = ""
 
 			return c.Reply(fmt.Sprintf("✅ Minimum Level updated to %d!", minLevel))
 		}
 		return nil
 	})
+}
 
-	// Background process to match encounters with subscriptions
-	go func() {
-		for {
-			var now = time.Now().Unix()
-			time.Sleep(30 * time.Second)
+func processEncounters(bot *telebot.Bot) {
+	var lastCheck = time.Now().Unix() - 30
+	// Fetch current Pokémon encounters
+	var encounters []Pokemon
+	if err := dbEncounters.Where("iv IS NOT NULL").Where("updated > ?", lastCheck).Where("expire_timestamp > ?", lastCheck).Find(&encounters).Error; err != nil {
+		log.Printf("❌ Failed to fetch Pokémon encounters: %v", err)
+	} else {
+		log.Printf("✅ Found %d Pokémon", len(encounters))
 
-			// Cleanup expired messages
-			var messages []Message
-			if err := dbConfig.Where("expiration < ?", time.Now().Unix()).Find(&messages).Error; err != nil {
-				log.Printf("❌ Failed to fetch expired messages: %v", err)
-			} else {
-				log.Printf("🗑️ Found %d expired messages", len(messages))
-				for _, message := range messages {
-					user := allUsers[message.ChatID]
-					if user.Cleanup {
-						bot.Delete(&telebot.StoredMessage{MessageID: message.MessageID, ChatID: message.ChatID})
+		// Match encounters with subscriptions
+		for _, encounter := range encounters {
+			// Check for 100% IV Pokémon
+			if encounter.IV != nil && *encounter.IV == 100 {
+				for _, user := range filteredUsers.HundoIVUsers {
+					if user.Latitude != 0 && user.Longitude != 0 && user.Distance > 0 {
+						distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
+						if distance > float64(user.Distance) {
+							continue
+						}
 					}
-					dbConfig.Delete(&message)
+					sendEncounterNotification(bot, user, encounter)
 				}
 			}
-
-			// Fetch current Pokémon encounters
-			var encounters []Pokemon
-			if err := dbEncounters.Where("iv IS NOT NULL").Where("updated > ?", now).Where("expire_timestamp > ?", now).Find(&encounters).Error; err != nil {
-				log.Printf("❌ Failed to fetch Pokémon encounters: %v", err)
-			} else {
-				log.Printf("✅ Found %d Pokémon", len(encounters))
-
-				// Match encounters with subscriptions
-				for _, encounter := range encounters {
-					// Check for 100% IV Pokémon
-					if encounter.IV != nil && *encounter.IV == 100 {
-						filteredUsers := FilterUsersWithHundoIV(allUsers)
-						for _, user := range filteredUsers {
-							if user.Latitude != 0 && user.Longitude != 0 && user.Distance > 0 {
-								distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-								if distance > float64(user.Distance) {
-									continue
-								}
-							}
-							sendEncounterNotification(bot, user, encounter)
+			// Check for 0% IV Pokémon
+			if encounter.IV != nil && *encounter.IV == 0 {
+				for _, user := range filteredUsers.ZeroIVUsers {
+					if user.Latitude != 0 && user.Longitude != 0 && user.Distance > 0 {
+						distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
+						if distance > float64(user.Distance) {
+							continue
 						}
 					}
-					// Check for 0% IV Pokémon
-					if encounter.IV != nil && *encounter.IV == 0 {
-						filteredUsers := FilterUsersWithZeroIV(allUsers)
-						for _, user := range filteredUsers {
-							if user.Latitude != 0 && user.Longitude != 0 && user.Distance > 0 {
-								distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-								if distance > float64(user.Distance) {
-									continue
-								}
-							}
-							sendEncounterNotification(bot, user, encounter)
-						}
-					}
-					// Check for subscribed Pokémon
-					if subs, exists := allSubscriptions[encounter.PokemonId]; exists {
-						for _, sub := range subs {
-							var filters map[string]int
-							json.Unmarshal([]byte(sub.Filters), &filters)
-							user := allUsers[sub.UserID]
+					sendEncounterNotification(bot, user, encounter)
+				}
+			}
+			// Check for subscribed Pokémon
+			if subs, exists := filteredSubscriptions.ActiveSubscriptions[encounter.PokemonId]; exists {
+				for _, sub := range subs {
+					var filters map[string]int
+					json.Unmarshal([]byte(sub.Filters), &filters)
+					user := filteredUsers.AllUsers[sub.UserID]
 
-							if encounter.IV != nil && *encounter.IV >= float32(filters["min_iv"]) &&
-								encounter.Level != nil && *encounter.Level >= filters["min_level"] {
-								if user.Latitude != 0 && user.Longitude != 0 && user.Distance > 0 {
-									distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-									if distance > float64(filters["max_distance"]) && distance > float64(user.Distance) {
-										continue
-									}
-								}
-								sendEncounterNotification(bot, user, encounter)
-							}
+					if filters["min_iv"] > 0 && *encounter.IV < float32(filters["min_iv"]) {
+						continue
+					}
+					if user.MinIV > 0 && *encounter.IV < float32(user.MinIV) {
+						continue
+					}
+					if filters["min_level"] > 0 && *encounter.Level < filters["min_level"] {
+						continue
+					}
+					if user.MinLevel > 0 && *encounter.Level < user.MinLevel {
+						continue
+					}
+					if user.Latitude != 0 && user.Longitude != 0 && (user.Distance > 0 || filters["max_distance"] > 0) {
+						distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
+						if distance > float64(filters["max_distance"]) && distance > float64(user.Distance) {
+							continue
 						}
 					}
+					sendEncounterNotification(bot, user, encounter)
 				}
 			}
 		}
+	}
+}
+
+func cleanupMessages(bot *telebot.Bot) {
+	// Cleanup expired messages
+	var messages []Message
+	if err := dbConfig.Where("expiration < ?", time.Now().Unix()).Find(&messages).Error; err != nil {
+		log.Printf("❌ Failed to fetch expired messages: %v", err)
+	} else {
+		log.Printf("🗑️ Found %d expired messages", len(messages))
+		for _, message := range messages {
+			user := filteredUsers.AllUsers[message.ChatID]
+			if user.Cleanup {
+				bot.Delete(&telebot.StoredMessage{MessageID: message.MessageID, ChatID: message.ChatID})
+			}
+			dbConfig.Delete(&message)
+		}
+	}
+}
+
+func startBackgroundProcessing(bot *telebot.Bot) {
+	// Background process to match encounters with subscriptions
+	go func() {
+		for {
+			time.Sleep(30 * time.Second)
+			cleanupMessages(bot)
+			processEncounters(bot)
+		}
 	}()
+}
+
+func main() {
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		log.Println("⚠️ No .env file found, using system environment variables")
+	}
+	// Required environment variables
+	requiredVars := []string{
+		"BOT_TOKEN", "BOT_DB_USER", "BOT_DB_PASS", "BOT_DB_NAME", "BOT_DB_HOST",
+		"ENCOUNTER_DB_USER", "ENCOUNTER_DB_PASS", "ENCOUNTER_DB_NAME", "ENCOUNTER_DB_HOST",
+	}
+	checkEnvVars(requiredVars)
+
+	// Load Pokémon mappings
+	loadAllLanguages()
+
+	// Initialize databases
+	initDB()
+
+	// Load users into a map
+	getUsersByFilters()
+
+	// Load subscriptions into a map
+	getSubscriptionsByFilters()
+
+	userStates = make(map[int64]string)
+	notifiedEncounters = make(map[int64]map[string]struct{})
+
+	var err error
+	if timezone, err = time.LoadLocation("Local"); err != nil {
+		log.Printf("❌ Failed to load local timezone: %v", err)
+		timezone = time.UTC
+	}
+
+	telegramBotToken := os.Getenv("BOT_TOKEN")
+	pref := telebot.Settings{
+		Token:  telegramBotToken,
+		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
+	}
+
+	bot, err := telebot.NewBot(pref)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	setupBotHandlers(bot)
+
+	startBackgroundProcessing(bot)
 
 	bot.Start()
 }
