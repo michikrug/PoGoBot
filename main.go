@@ -604,15 +604,15 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 		// Welcome message
 		startMessage := fmt.Sprintf(
-			"👋 Welcome to the Pokémon Notification Bot!\n\n"+
-				"🔹 Language (for Pokémon and Moves) detected: *%s*\n"+
-				"🔹 Send me your 📍 *location* to enable area-based notifications.\n"+
+			"👋 Welcome to the PoGo Notification Bot!\n\n"+
+				"🔹 Language (Pokémon & Moves) detected: *%s*\n"+
+				"🔹 Send me your 📍 *location* to enable distance-based notifications.\n"+
 				"✅ Use /settings to update your preferences.\n"+
 				"✅ Use /subscribe <pokemon_name> [min-iv] [min-level] [max-distance] to get notified about specific Pokémon!",
 			lang,
 		)
 
-		return c.Send(startMessage)
+		return c.Send(startMessage, telebot.ModeMarkdown)
 	})
 
 	bot.Handle("/settings", func(c telebot.Context) error {
@@ -687,7 +687,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			Text:     "📍 Send Location",
 			Location: true,
 		}
-		return c.Send("📍 Please send your current location:", &telebot.ReplyMarkup{
+		return c.Edit("📍 Please send your current location:", &telebot.ReplyMarkup{
 			ReplyKeyboard:  [][]telebot.ReplyButton{{btnShareLocation}},
 			ResizeKeyboard: true,
 		})
@@ -699,22 +699,22 @@ func setupBotHandlers(bot *telebot.Bot) {
 		// Update user location in the database
 		updateUserPreference(c.Sender().ID, "Latitude", location.Lat)
 		updateUserPreference(c.Sender().ID, "Longitude", location.Lng)
-		return c.Send("✅ Location updated!")
+		return c.Edit("✅ Location updated!")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "set_distance"}, func(c telebot.Context) error {
 		userStates[c.Sender().ID] = "set_distance"
-		return c.Send("📏 Enter your preferred max distance (in m):")
+		return c.Edit("📏 Enter your preferred max distance (in m):")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "set_min_iv"}, func(c telebot.Context) error {
 		userStates[c.Sender().ID] = "set_min_iv"
-		return c.Send("✨ Enter the minimum IV percentage (0-100):")
+		return c.Edit("✨ Enter the minimum IV percentage (0-100):")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "set_min_level"}, func(c telebot.Context) error {
 		userStates[c.Sender().ID] = "set_min_level"
-		return c.Send("🔢 Enter the minimum Pokémon level (1-40):")
+		return c.Edit("🔢 Enter the minimum Pokémon level (1-40):")
 	})
 
 	// Handle text input for max distance
@@ -726,7 +726,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &maxDistance)
 			if err != nil || maxDistance <= 0 {
-				return c.Send("❌ Invalid input! Please enter a valid distance in m.")
+				return c.Edit("❌ Invalid input! Please enter a valid distance in m.")
 			}
 
 			// Update max distance in the database
@@ -734,7 +734,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Send(fmt.Sprintf("✅ Max distance updated to %dm!", maxDistance))
+			return c.Edit(fmt.Sprintf("✅ Max distance updated to %dm!", maxDistance))
 		}
 		if userStates[userID] == "set_min_iv" {
 			var minIV int
@@ -742,7 +742,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &minIV)
 			if err != nil || minIV < 0 || minIV > 100 {
-				return c.Send("❌ Invalid input! Please enter a valid IV percentage (0-100).")
+				return c.Edit("❌ Invalid input! Please enter a valid IV percentage (0-100).")
 			}
 
 			// Update min IV in the database
@@ -750,7 +750,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Send(fmt.Sprintf("✅ Minimum IV updated to %d%%!", minIV))
+			return c.Edit(fmt.Sprintf("✅ Minimum IV updated to %d%%!", minIV))
 		}
 		if userStates[userID] == "set_min_level" {
 			var minLevel int
@@ -758,7 +758,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &minLevel)
 			if err != nil || minLevel < 0 || minLevel > 40 {
-				return c.Send("❌ Invalid input! Please enter a valid level (0-40).")
+				return c.Edit("❌ Invalid input! Please enter a valid level (0-40).")
 			}
 
 			// Update min IV in the database
@@ -766,7 +766,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Send(fmt.Sprintf("✅ Minimum Level updated to %d!", minLevel))
+			return c.Edit(fmt.Sprintf("✅ Minimum Level updated to %d!", minLevel))
 		}
 		return nil
 	})
