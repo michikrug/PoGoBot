@@ -309,6 +309,7 @@ func getUsersByFilters() {
 	dbConfig.Find(&users)
 	for _, user := range users {
 		filteredUsers.AllUsers[user.ID] = user
+		notifiedEncounters[user.ID] = make(map[string]struct{})
 	}
 
 	for _, user := range filteredUsers.AllUsers {
@@ -873,6 +874,9 @@ func main() {
 	}
 	checkEnvVars(requiredVars)
 
+	userStates = make(map[int64]string)
+	notifiedEncounters = make(map[int64]map[string]struct{})
+
 	// Load Pokémon mappings
 	loadAllLanguages()
 
@@ -884,9 +888,6 @@ func main() {
 
 	// Load subscriptions into a map
 	getSubscriptionsByFilters()
-
-	userStates = make(map[int64]string)
-	notifiedEncounters = make(map[int64]map[string]struct{})
 
 	var err error
 	if timezone, err = time.LoadLocation("Local"); err != nil {
