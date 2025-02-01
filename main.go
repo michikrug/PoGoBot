@@ -25,10 +25,10 @@ type User struct {
 	Cleanup   bool    `gorm:"default:true"`
 	Latitude  float32 `gorm:"default:0"`
 	Longitude float32 `gorm:"default:0"`
-	Distance  float32 `gorm:"default:0"`
+	Distance  int     `gorm:"default:0"`
 	HundoIV   bool    `gorm:"default:false"`
 	ZeroIV    bool    `gorm:"default:false"`
-	MinIV     float32 `gorm:"default:0"`
+	MinIV     int     `gorm:"default:0"`
 	MinLevel  int     `gorm:"default:0"`
 }
 
@@ -36,7 +36,7 @@ type Subscription struct {
 	ID        int    `gorm:"primaryKey"`
 	UserID    int64  `gorm:"index"`
 	PokemonID int    `gorm:"index"`
-	Filters   string `gorm:"type:json"` // {"min_iv": 0.0, "min_level": 1, "distance": 100}
+	Filters   string `gorm:"type:json"` // {"min_iv": 0.0, "min_level": 1, "max_distance": 100}
 }
 
 type Message struct {
@@ -91,6 +91,7 @@ type Pokemon struct {
 var (
 	dbConfig         *gorm.DB // Stores user subscriptions
 	dbEncounters     *gorm.DB // Fetches Pokémon encounters
+	userStates       map[int64]string
 	allUsers         map[int64]User
 	allSubscriptions map[int][]Subscription
 	pokemonNameToID  map[string]int
@@ -244,12 +245,12 @@ func getPokemonID(name string) (int, error) {
 }
 
 // Subscribe User
-func addSubscription(userID int64, pokemonID int, minIV float32) {
+func addSubscription(userID int64, pokemonID int, minIV int, minLevel int, maxDistance int) {
 	var user User
 	dbConfig.FirstOrCreate(&user, User{ID: userID})
 
 	// Encode filters as JSON
-	filters := fmt.Sprintf(`{"min_iv": %.2f}`, minIV)
+	filters := fmt.Sprintf(`{"min_iv": %d, "min_level": %d, "max_distance": %d}`, minIV, minLevel, maxDistance)
 
 	newSub := Subscription{UserID: user.ID, PokemonID: pokemonID, Filters: filters}
 	var existingSub Subscription
@@ -286,7 +287,7 @@ func getUsers() {
 }
 
 func sendSticker(bot *telebot.Bot, UserID int64, URL string, Expiration int) {
-	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Sticker{File: telebot.FromURL(URL)})
+	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Sticker{File: telebot.FromURL(URL)}, &telebot.SendOptions{DisableNotification: true})
 	if err != nil {
 		log.Printf("❌ Failed to send sticker: %v", err)
 	} else {
@@ -296,7 +297,7 @@ func sendSticker(bot *telebot.Bot, UserID int64, URL string, Expiration int) {
 }
 
 func sendLocation(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Expiration int) {
-	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Location{Lat: Lat, Lng: Lon})
+	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Location{Lat: Lat, Lng: Lon}, &telebot.SendOptions{DisableNotification: true})
 	if err != nil {
 		log.Printf("❌ Failed to send location: %v", err)
 	} else {
@@ -325,7 +326,9 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 
 	var url = fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d.webp", encounter.PokemonId)
 
-	sendSticker(bot, user.ID, url, *encounter.ExpireTimestamp)
+	if user.Stickers {
+		sendSticker(bot, user.ID, url, *encounter.ExpireTimestamp)
+	}
 	sendLocation(bot, user.ID, encounter.Lat, encounter.Lon, *encounter.ExpireTimestamp)
 
 	expireTime := time.Unix(int64(*encounter.ExpireTimestamp), 0).In(timezone)
@@ -344,8 +347,12 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	))
 
 	if user.Latitude != 0 && user.Longitude != 0 {
-		notificationText.WriteString(fmt.Sprintf("📍 %.0fm\n",
-			haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))))
+		distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
+		if distance < 1000 {
+			notificationText.WriteString(fmt.Sprintf("📍 %.0fm\n", distance))
+		} else {
+			notificationText.WriteString(fmt.Sprintf("📍 %.2fkm\n", distance/1000))
+		}
 	}
 
 	notificationText.WriteString(fmt.Sprintf("💨 %s ⏳ %s\n",
@@ -403,6 +410,8 @@ func main() {
 	// Load subscriptions into a map
 	getSubscriptions()
 
+	userStates = make(map[int64]string)
+
 	var err error
 	if timezone, err = time.LoadLocation("Local"); err != nil {
 		log.Printf("❌ Failed to load local timezone: %v", err)
@@ -424,7 +433,7 @@ func main() {
 	bot.Handle("/subscribe", func(c telebot.Context) error {
 		args := c.Args()
 		if len(args) < 1 {
-			return c.Reply("Usage: /subscribe <pokemon_name> [min_iv]")
+			return c.Reply("Usage: /subscribe <pokemon_name> [min-iv] [min-level] [max-distance]")
 		}
 
 		pokemonName := args[0]
@@ -433,19 +442,36 @@ func main() {
 			return c.Reply(fmt.Sprintf("Can't find Pokedex # for Pokémon: %s", pokemonName))
 		}
 
-		minIV := float32(0)
+		minIV := int(0)
+		minLevel := int(0)
+		maxDistance := int(0)
 		if len(args) > 1 {
-			fmt.Sscanf(args[1], "%f", &minIV)
+			minIV, err = strconv.Atoi(args[1])
+			if err != nil {
+				return c.Reply("Invalid IV value. Please provide a valid number between 0-100.")
+			}
+		}
+		if len(args) > 2 {
+			minLevel, err = strconv.Atoi(args[2])
+			if err != nil {
+				return c.Reply("Invalid level value. Please provide a valid number between 0-40.")
+			}
+		}
+		if len(args) > 3 {
+			maxDistance, err = strconv.Atoi(args[3])
+			if err != nil {
+				return c.Reply("Invalid distance value. Please provide a valid number.")
+			}
 		}
 
-		addSubscription(c.Sender().ID, pokemonID, minIV)
+		addSubscription(c.Sender().ID, pokemonID, minIV, minLevel, maxDistance)
 
 		getUsers()
 		getSubscriptions()
 
 		var user User
 		dbConfig.First(&user, c.Sender().ID)
-		return c.Reply(fmt.Sprintf("Subscribed to %s (Min IV: %.2f)", pokemonIDToName[user.Language][strconv.Itoa(pokemonID)], minIV))
+		return c.Reply(fmt.Sprintf("Subscribed to %s (Min IV: %d)", pokemonIDToName[user.Language][strconv.Itoa(pokemonID)], minIV))
 	})
 
 	// /list
@@ -460,9 +486,9 @@ func main() {
 
 		var text strings.Builder
 		for _, sub := range subs {
-			var filters map[string]float32
+			var filters map[string]int
 			json.Unmarshal([]byte(sub.Filters), &filters)
-			text.WriteString(fmt.Sprintf("Subscribed to %s (Min IV: %.2f)\n", pokemonIDToName[allUsers[userID].Language][strconv.Itoa(sub.PokemonID)], filters["min_iv"]))
+			text.WriteString(fmt.Sprintf("Subscribed to %s (Min IV: %d)\n", pokemonIDToName[allUsers[userID].Language][strconv.Itoa(sub.PokemonID)], filters["min_iv"]))
 		}
 		return c.Reply(text.String())
 	})
@@ -492,45 +518,6 @@ func main() {
 		return c.Reply(fmt.Sprintf("Unsubscribed from %s alerts", pokemonIDToName[user.Language][strconv.Itoa(pokemonID)]))
 	})
 
-	bot.Handle("/language", func(c telebot.Context) error {
-		args := c.Args()
-		if len(args) < 1 {
-			return c.Reply("Usage: /language <en|de>")
-		}
-
-		lang := args[0]
-		if lang != "en" && lang != "de" {
-			return c.Reply("Supported languages: en, de")
-		}
-
-		userID := c.Sender().ID
-		dbConfig.Model(&User{}).Where("id = ?", userID).Updates(User{Language: lang})
-
-		getUsers()
-
-		return c.Reply(fmt.Sprintf("✅ Language set to %s", lang))
-	})
-
-	bot.Handle("/distance", func(c telebot.Context) error {
-		args := c.Args()
-		if len(args) < 1 {
-			return c.Reply("Usage: /distance <en|de>")
-		}
-
-		distance := args[0]
-
-		userID := c.Sender().ID
-		distanceFloat, err := strconv.ParseFloat(distance, 32)
-		if err != nil {
-			return c.Reply("Invalid distance value. Please provide a valid number.")
-		}
-		dbConfig.Model(&User{}).Where("id = ?", userID).Updates(User{Distance: float32(distanceFloat)})
-
-		getUsers()
-
-		return c.Reply(fmt.Sprintf("✅ Distance set to %.0f meters", distanceFloat))
-	})
-
 	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
 		userID := c.Sender().ID
 		location := c.Message().Location
@@ -543,30 +530,176 @@ func main() {
 	})
 
 	bot.Handle("/start", func(c telebot.Context) error {
-		userID := c.Sender().ID
-		lang := c.Sender().LanguageCode // Auto-detect Telegram locale
+		var user User
+		dbConfig.FirstOrCreate(&user, User{ID: c.Sender().ID})
 
-		// Only support known languages, default to English
+		lang := c.Sender().LanguageCode // Auto-detect Telegram locale
 		if lang != "en" && lang != "de" {
 			lang = "en"
 		}
-
-		// Save user preference (language & default location)
-		var user User
-		dbConfig.FirstOrCreate(&user, User{ID: userID})
 		dbConfig.Model(&user).Updates(User{Language: lang})
+
+		// Create a location request button
+		btnShareLocation := telebot.ReplyButton{
+			Text:     "📍 Send Location",
+			Location: true, // This makes Telegram prompt the user to share their location
+		}
 
 		// Welcome message
 		startMessage := fmt.Sprintf(
 			"👋 Welcome to the Pokémon Notification Bot!\n\n"+
-				"🔹 Language detected: *%s*\n"+
+				"🔹 Language (for Pokémon and Moves) detected: *%s*\n"+
 				"🔹 Send me your 📍 *location* to enable area-based notifications.\n"+
-				"✅ Use /language <en|de> to set your preferred language.\n"+
-				"✅ Use /subscribe <pokemon_name> <min_iv> to get notified about Pokémon!",
+				"✅ Use /settings to update your preferences.\n"+
+				"✅ Use /subscribe <pokemon_name> [min-iv] [min-level] [max-distance] to get notified about specific Pokémon!",
 			lang,
 		)
 
-		return c.Reply(startMessage, telebot.ModeMarkdown)
+		return c.Reply(startMessage, &telebot.ReplyMarkup{
+			ReplyKeyboard:  [][]telebot.ReplyButton{{btnShareLocation}},
+			ResizeKeyboard: true, // Makes the keyboard smaller
+		})
+	})
+
+	bot.Handle("/settings", func(c telebot.Context) error {
+		var user User
+		dbConfig.FirstOrCreate(&user, User{ID: c.Sender().ID})
+
+		// Create interactive buttons
+		btnChangeLanguage := telebot.InlineButton{Text: "🌍 Change Language (for Pokémon and Moves)", Unique: "change_lang"}
+		btnUpdateLocation := telebot.InlineButton{Text: "📍 Update Location", Unique: "update_location"}
+		btnSetDistance := telebot.InlineButton{Text: "📏 Set Max Distance", Unique: "set_distance"}
+		btnSetMinIV := telebot.InlineButton{Text: "✨ Set Min IV", Unique: "set_min_iv"}
+		btnSetMinLevel := telebot.InlineButton{Text: "🔢 Set Min Level", Unique: "set_min_level"}
+
+		// Settings message
+		settingsMessage := fmt.Sprintf(
+			"⚙️ *Your Settings:*\n\n"+
+				"🌍 *Language (for Pokémon and Moves):* %s\n"+
+				"📍 *Location:* %.5f, %.5f\n"+
+				"📏 *Max Distance:* %d m\n"+
+				"✨ *Min IV:* %d%%\n"+
+				"🔢 *Min Level:* %d\n\n"+
+				"Use the buttons below to update your settings.",
+			user.Language, user.Latitude, user.Longitude, user.Distance, user.MinIV, user.MinLevel,
+		)
+
+		return c.Reply(settingsMessage, &telebot.ReplyMarkup{
+			InlineKeyboard: [][]telebot.InlineButton{
+				{btnChangeLanguage},
+				{btnUpdateLocation},
+				{btnSetDistance},
+				{btnSetMinIV},
+				{btnSetMinLevel},
+			},
+		}, telebot.ModeMarkdown)
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "change_lang"}, func(c telebot.Context) error {
+		// Create language selection buttons
+		btnEn := telebot.InlineButton{Text: "🇬🇧 English", Unique: "set_lang_en"}
+		btnDe := telebot.InlineButton{Text: "🇩🇪 Deutsch", Unique: "set_lang_de"}
+		return c.Edit("🌍 *Select a language:*", &telebot.ReplyMarkup{
+			InlineKeyboard: [][]telebot.InlineButton{{btnEn, btnDe}},
+		}, telebot.ModeMarkdown)
+	})
+
+	// Handle setting language
+	bot.Handle(&telebot.InlineButton{Unique: "set_lang_en"}, func(c telebot.Context) error {
+		dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Update("language", "en")
+		return c.Edit("✅ Language set to *English*", telebot.ModeMarkdown)
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "set_lang_de"}, func(c telebot.Context) error {
+		dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Update("language", "de")
+		return c.Edit("✅ Sprache auf *Deutsch* geändert", telebot.ModeMarkdown)
+	})
+	bot.Handle(&telebot.InlineButton{Unique: "update_location"}, func(c telebot.Context) error {
+		// Prompt user to send location
+		btnShareLocation := telebot.ReplyButton{
+			Text:     "📍 Send Location",
+			Location: true,
+		}
+		return c.Reply("📍 Please send your current location:", &telebot.ReplyMarkup{
+			ReplyKeyboard:  [][]telebot.ReplyButton{{btnShareLocation}},
+			ResizeKeyboard: true,
+		})
+	})
+
+	// Handle receiving location
+	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
+		location := c.Message().Location
+		// Update user location in the database
+		dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Updates(User{Latitude: location.Lat, Longitude: location.Lng})
+		return c.Reply("✅ Location updated!")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "set_distance"}, func(c telebot.Context) error {
+		userStates[c.Sender().ID] = "set_distance"
+		return c.Reply("📏 Enter your preferred max distance (in m):")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "set_min_iv"}, func(c telebot.Context) error {
+		userStates[c.Sender().ID] = "set_min_iv"
+		return c.Reply("✨ Enter the minimum IV percentage (0-100):")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "set_min_level"}, func(c telebot.Context) error {
+		userStates[c.Sender().ID] = "set_min_level"
+		return c.Reply("🔢 Enter the minimum Pokémon level (1-40):")
+	})
+
+	// Handle text input for max distance
+	bot.Handle(telebot.OnText, func(c telebot.Context) error {
+		if userStates[c.Sender().ID] == "set_distance" {
+			var maxDistance int
+
+			// Parse user input
+			_, err := fmt.Sscanf(c.Text(), "%d", &maxDistance)
+			if err != nil || maxDistance <= 0 {
+				return c.Reply("❌ Invalid input! Please enter a valid distance in m.")
+			}
+
+			// Update max distance in the database
+			dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Update("distance", maxDistance)
+
+			userStates[c.Sender().ID] = ""
+
+			return c.Reply(fmt.Sprintf("✅ Max distance updated to %dm!", maxDistance))
+		}
+		if userStates[c.Sender().ID] == "set_min_iv" {
+			var minIV int
+
+			// Parse user input
+			_, err := fmt.Sscanf(c.Text(), "%d", &minIV)
+			if err != nil || minIV < 0 || minIV > 100 {
+				return c.Reply("❌ Invalid input! Please enter a valid IV percentage (0-100).")
+			}
+
+			// Update min IV in the database
+			dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Update("min_iv", minIV)
+
+			userStates[c.Sender().ID] = ""
+
+			return c.Reply(fmt.Sprintf("✅ Minimum IV updated to %d%%!", minIV))
+		}
+		if userStates[c.Sender().ID] == "set_min_level" {
+			var minLevel int
+
+			// Parse user input
+			_, err := fmt.Sscanf(c.Text(), "%d", &minLevel)
+			if err != nil || minLevel < 0 || minLevel > 40 {
+				return c.Reply("❌ Invalid input! Please enter a valid level (1-40).")
+			}
+
+			// Update min IV in the database
+			dbConfig.Model(&User{}).Where("id = ?", c.Sender().ID).Update("min_level", minLevel)
+
+			userStates[c.Sender().ID] = ""
+
+			return c.Reply(fmt.Sprintf("✅ Minimum Level updated to %d!", minLevel))
+		}
+		return nil
 	})
 
 	// Background process to match encounters with subscriptions
@@ -603,6 +736,12 @@ func main() {
 					if encounter.IV != nil && *encounter.IV == 100 {
 						filteredUsers := FilterUsersWithHundoIV(allUsers)
 						for _, user := range filteredUsers {
+							if user.Latitude != 0 && user.Longitude != 0 && user.Distance > 0 {
+								distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
+								if distance > float64(user.Distance) {
+									continue
+								}
+							}
 							sendEncounterNotification(bot, user, encounter)
 						}
 					}
@@ -610,20 +749,27 @@ func main() {
 					if encounter.IV != nil && *encounter.IV == 0 {
 						filteredUsers := FilterUsersWithZeroIV(allUsers)
 						for _, user := range filteredUsers {
+							if user.Latitude != 0 && user.Longitude != 0 && user.Distance > 0 {
+								distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
+								if distance > float64(user.Distance) {
+									continue
+								}
+							}
 							sendEncounterNotification(bot, user, encounter)
 						}
 					}
 					// Check for subscribed Pokémon
 					if subs, exists := allSubscriptions[encounter.PokemonId]; exists {
 						for _, sub := range subs {
-							var filters map[string]float32
+							var filters map[string]int
 							json.Unmarshal([]byte(sub.Filters), &filters)
 							user := allUsers[sub.UserID]
 
-							if encounter.IV != nil && *encounter.IV >= filters["min_iv"] {
+							if encounter.IV != nil && *encounter.IV >= float32(filters["min_iv"]) &&
+								encounter.Level != nil && *encounter.Level >= filters["min_level"] {
 								if user.Latitude != 0 && user.Longitude != 0 && user.Distance > 0 {
 									distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-									if distance > float64(user.Distance) {
+									if distance > float64(filters["max_distance"]) && distance > float64(user.Distance) {
 										continue
 									}
 								}
