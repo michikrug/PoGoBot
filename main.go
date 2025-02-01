@@ -121,6 +121,13 @@ func (Pokemon) TableName() string {
 	return "pokemon"
 }
 
+func boolToEmoji(value bool) string {
+	if value {
+		return "✅"
+	}
+	return "❌"
+}
+
 // Haversine formula to calculate the distance between two points on the Earth
 func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 	const R = 6371e3 // Earth radius in meters
@@ -413,19 +420,87 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	notifiedEncounters[user.ID][encounter.Id] = struct{}{}
 }
 
+func buildSettings(user User) (string, *telebot.ReplyMarkup) {
+	// Create interactive buttons
+	notificationsText := "🔔 Disable Notifications"
+	if !user.Notify {
+		notificationsText = "🔕 Enable Notifications"
+	}
+	btnToggleNotifications := telebot.InlineButton{Text: notificationsText, Unique: "toggle_notifications"}
+	btnChangeLanguage := telebot.InlineButton{Text: "🌍 Change Language (Pokémon & Moves)", Unique: "change_lang"}
+	btnUpdateLocation := telebot.InlineButton{Text: "📍 Update Location", Unique: "update_location"}
+	btnSetDistance := telebot.InlineButton{Text: "📏 Set Max Distance", Unique: "set_distance"}
+	btnSetMinIV := telebot.InlineButton{Text: "✨ Set Min IV", Unique: "set_min_iv"}
+	btnSetMinLevel := telebot.InlineButton{Text: "🔢 Set Min Level", Unique: "set_min_level"}
+	stickersText := "🎭 Do not show Pokémon Stickers"
+	if !user.Stickers {
+		stickersText = "🎭 Show Pokémon Stickers"
+	}
+	btnToggleStickers := telebot.InlineButton{Text: stickersText, Unique: "toggle_stickers"}
+	hundoText := "💯 Disable 100% IV Notifications"
+	if !user.Stickers {
+		hundoText = "💯 Enable 100% IV Notifications"
+	}
+	btnToogleHundoIV := telebot.InlineButton{Text: hundoText, Unique: "toggle_hundo_iv"}
+	zeroText := "🚫 Disable 0% IV Notifications"
+	if !user.Stickers {
+		zeroText = "🚫 Enable 0% IV Notifications"
+	}
+	btnToogleZeroIV := telebot.InlineButton{Text: zeroText, Unique: "toggle_zero_iv"}
+	cleanupText := "🗑️ Keep Expired Notifications"
+	if !user.Stickers {
+		cleanupText = "🗑️ Remove Expired Notifications"
+	}
+	btnToggleCleanup := telebot.InlineButton{Text: cleanupText, Unique: "toggle_cleanup"}
+
+	// Settings message
+	settingsMessage := fmt.Sprintf(
+		"⚙️ *Your Settings:*\n"+
+			"----------------------------------------------\n"+
+			"🔔 *Notifications:* %s\n"+
+			"🌍 *Language (Pokémon & Moves):* %s\n"+
+			"📍 *Location:* %.5f, %.5f\n"+
+			"📏 *Max Distance:* %dm\n"+
+			"✨ *Min IV:* %d%%\n"+
+			"🔢 *Min Level:* %d\n"+
+			"🎭 *Pokémon Stickers:* %s\n"+
+			"💯 *100%% IV Notifications:* %s\n"+
+			"🚫 *0%% IV Notifications:* %s\n"+
+			"🗑️ *Cleanup Expired Notifications:* %s\n\n"+
+			"Use the buttons below to update your settings.",
+		boolToEmoji(user.Notify), user.Language, user.Latitude, user.Longitude, user.Distance,
+		user.MinIV, user.MinLevel, boolToEmoji(user.Stickers), boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV), boolToEmoji(user.Cleanup),
+	)
+
+	return settingsMessage, &telebot.ReplyMarkup{
+		InlineKeyboard: [][]telebot.InlineButton{
+			{btnToggleNotifications},
+			{btnChangeLanguage},
+			{btnUpdateLocation},
+			{btnSetDistance},
+			{btnSetMinIV},
+			{btnSetMinLevel},
+			{btnToggleStickers},
+			{btnToogleHundoIV},
+			{btnToogleZeroIV},
+			{btnToggleCleanup},
+		},
+	}
+}
+
 func setupBotHandlers(bot *telebot.Bot) {
 
 	// /subscribe <pokemon_name> [min_iv]
 	bot.Handle("/subscribe", func(c telebot.Context) error {
 		args := c.Args()
 		if len(args) < 1 {
-			return c.Reply("Usage: /subscribe <pokemon_name> [min-iv] [min-level] [max-distance]")
+			return c.Send("Usage: /subscribe <pokemon_name> [min-iv] [min-level] [max-distance]")
 		}
 
 		pokemonName := args[0]
 		pokemonID, err := getPokemonID(pokemonName)
 		if err != nil {
-			return c.Reply(fmt.Sprintf("Can't find Pokedex # for Pokémon: %s", pokemonName))
+			return c.Send(fmt.Sprintf("Can't find Pokedex # for Pokémon: %s", pokemonName))
 		}
 
 		minIV := int(0)
@@ -434,19 +509,19 @@ func setupBotHandlers(bot *telebot.Bot) {
 		if len(args) > 1 {
 			minIV, err = strconv.Atoi(args[1])
 			if err != nil {
-				return c.Reply("❌ Invalid IV input! Please enter a valid IV percentage (0-100).")
+				return c.Send("❌ Invalid IV input! Please enter a valid IV percentage (0-100).")
 			}
 		}
 		if len(args) > 2 {
 			minLevel, err = strconv.Atoi(args[2])
 			if err != nil {
-				return c.Reply("❌ Invalid level input! Please enter a valid level (0-40).")
+				return c.Send("❌ Invalid level input! Please enter a valid level (0-40).")
 			}
 		}
 		if len(args) > 3 {
 			maxDistance, err = strconv.Atoi(args[3])
 			if err != nil {
-				return c.Reply("❌ Invalid distance input! Please enter a valid distance in m.")
+				return c.Send("❌ Invalid distance input! Please enter a valid distance in m.")
 			}
 		}
 
@@ -454,7 +529,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 		addSubscription(userID, pokemonID, minIV, minLevel, maxDistance)
 
 		user := getUserPreferences(userID)
-		return c.Reply(fmt.Sprintf("Subscribed to %s alerts (Min IV: %d%%, Min Level: %d, Max Distance: %dm)",
+		return c.Send(fmt.Sprintf("Subscribed to %s alerts (Min IV: %d%%, Min Level: %d, Max Distance: %dm)",
 			pokemonIDToName[user.Language][strconv.Itoa(pokemonID)],
 			minIV, minLevel, maxDistance,
 		))
@@ -468,7 +543,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 		dbConfig.Where("user_id = ?", user.ID).Find(&subs)
 
 		if len(subs) == 0 {
-			return c.Reply("You have no subscriptions.")
+			return c.Send("You have no subscriptions.")
 		}
 
 		var text strings.Builder
@@ -481,20 +556,20 @@ func setupBotHandlers(bot *telebot.Bot) {
 				filters["min_iv"], filters["min_level"], filters["max_distance"],
 			))
 		}
-		return c.Reply(text.String(), telebot.ModeMarkdown)
+		return c.Send(text.String(), telebot.ModeMarkdown)
 	})
 
 	// /unsubscribe <pokemon_name>
 	bot.Handle("/unsubscribe", func(c telebot.Context) error {
 		args := c.Args()
 		if len(args) < 1 {
-			return c.Reply("Usage: /unsubscribe <pokemon_name>")
+			return c.Send("Usage: /unsubscribe <pokemon_name>")
 		}
 
 		pokemonName := args[0]
 		pokemonID, err := getPokemonID(pokemonName)
 		if err != nil {
-			return c.Reply(fmt.Sprintf("Can't find Pokedex # for Pokémon: %s", pokemonName))
+			return c.Send(fmt.Sprintf("Can't find Pokedex # for Pokémon: %s", pokemonName))
 		}
 
 		userID := c.Sender().ID
@@ -504,7 +579,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 		user := getUserPreferences(userID)
 
-		return c.Reply(fmt.Sprintf("Unsubscribed from %s alerts", pokemonIDToName[user.Language][strconv.Itoa(pokemonID)]))
+		return c.Send(fmt.Sprintf("Unsubscribed from %s alerts", pokemonIDToName[user.Language][strconv.Itoa(pokemonID)]))
 	})
 
 	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
@@ -514,7 +589,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 		updateUserPreference(userID, "Latitude", location.Lat)
 		updateUserPreference(userID, "Longitude", location.Lng)
 
-		return c.Reply("📍 Location updated! Your preferences will now consider this.")
+		return c.Send("📍 Location updated! Your preferences will now consider this.")
 	})
 
 	bot.Handle("/start", func(c telebot.Context) error {
@@ -526,12 +601,6 @@ func setupBotHandlers(bot *telebot.Bot) {
 		}
 		updateUserPreference(user.ID, "Language", lang)
 
-		// Create a location request button
-		btnShareLocation := telebot.ReplyButton{
-			Text:     "📍 Send Location",
-			Location: true, // This makes Telegram prompt the user to share their location
-		}
-
 		// Welcome message
 		startMessage := fmt.Sprintf(
 			"👋 Welcome to the Pokémon Notification Bot!\n\n"+
@@ -542,105 +611,48 @@ func setupBotHandlers(bot *telebot.Bot) {
 			lang,
 		)
 
-		return c.Reply(startMessage, &telebot.ReplyMarkup{
-			ReplyKeyboard:  [][]telebot.ReplyButton{{btnShareLocation}},
-			ResizeKeyboard: true, // Makes the keyboard smaller
-		})
+		return c.Send(startMessage)
 	})
 
 	bot.Handle("/settings", func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
-
-		// Create interactive buttons
-		btnToggleNotifications := telebot.InlineButton{Text: "🔔 Toggle Notifications", Unique: "toggle_notifications"}
-		btnChangeLanguage := telebot.InlineButton{Text: "🌍 Change Language (for Pokémon and Moves)", Unique: "change_lang"}
-		btnUpdateLocation := telebot.InlineButton{Text: "📍 Update Location", Unique: "update_location"}
-		btnSetDistance := telebot.InlineButton{Text: "📏 Set Max Distance", Unique: "set_distance"}
-		btnSetMinIV := telebot.InlineButton{Text: "✨ Set Min IV", Unique: "set_min_iv"}
-		btnSetMinLevel := telebot.InlineButton{Text: "🔢 Set Min Level", Unique: "set_min_level"}
-		btnToggleStickers := telebot.InlineButton{Text: "🎭 Toggle Pokémon Stickers", Unique: "toggle_stickers"}
-		btnToogleHundoIV := telebot.InlineButton{Text: "💯 Toggle 100% IV Notifications", Unique: "toggle_hundo_iv"}
-		btnToogleZeroIV := telebot.InlineButton{Text: "🚫 Toggle 0% IV Notifications", Unique: "toggle_zero_iv"}
-		btnToggleCleanup := telebot.InlineButton{Text: "🗑️ Toggle Cleanup Expired Notifications", Unique: "toggle_cleanup"}
-
-		// Settings message
-		settingsMessage := fmt.Sprintf(
-			"⚙️ *Your Settings:*\n"+
-				"----------------------------------------------\n"+
-				"🔔 *Notifications:* %t\n"+
-				"🌍 *Language (for Pokémon and Moves):* %s\n"+
-				"📍 *Location:* %.5f, %.5f\n"+
-				"📏 *Max Distance:* %dm\n"+
-				"✨ *Min IV:* %d%%\n"+
-				"🔢 *Min Level:* %d\n"+
-				"🎭 *Pokémon Stickers:* %t\n"+
-				"💯 *100%% IV Notifications:* %t\n"+
-				"🚫 *0%% IV Notifications:* %t\n"+
-				"🗑️ *Cleanup Expired Notifications:* %t\n\n"+
-				"Use the buttons below to update your settings.",
-			user.Notify, user.Language, user.Latitude, user.Longitude, user.Distance,
-			user.MinIV, user.MinLevel, user.Stickers, user.HundoIV, user.ZeroIV, user.Cleanup,
-		)
-
-		return c.Reply(settingsMessage, &telebot.ReplyMarkup{
-			InlineKeyboard: [][]telebot.InlineButton{
-				{btnToggleNotifications},
-				{btnChangeLanguage},
-				{btnUpdateLocation},
-				{btnSetDistance},
-				{btnSetMinIV},
-				{btnSetMinLevel},
-				{btnToggleStickers},
-				{btnToogleHundoIV},
-				{btnToogleZeroIV},
-				{btnToggleCleanup},
-			},
-		}, telebot.ModeMarkdown)
+		settingsMessage, replyMarkup := buildSettings(user)
+		return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_notifications"}, func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
 		updateUserPreference(user.ID, "Notify", !user.Notify)
-		if !user.Notify {
-			return c.Reply("🔕 Notifications disabled! Use /settings to re-enable.")
-		}
-		return c.Reply("🔔 Notifications enabled!")
+		settingsMessage, replyMarkup := buildSettings(user)
+		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_stickers"}, func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
 		updateUserPreference(user.ID, "Stickers", !user.Stickers)
-		if !user.Stickers {
-			return c.Reply("🎭 Pokémon Sstickers disabled! Use /settings to re-enable.")
-		}
-		return c.Reply("🎭 Pokémon Stickers enabled!")
+		settingsMessage, replyMarkup := buildSettings(user)
+		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_hundo_iv"}, func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
 		updateUserPreference(user.ID, "HundoIV", !user.HundoIV)
-		if !user.HundoIV {
-			return c.Reply("💯 100% IV Notifications disabled! Use /settings to re-enable.")
-		}
-		return c.Reply("💯 100% IV Notifications enabled!")
+		settingsMessage, replyMarkup := buildSettings(user)
+		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_zero_iv"}, func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
 		updateUserPreference(user.ID, "ZeroIV", !user.ZeroIV)
-		if !user.ZeroIV {
-			return c.Reply("🚫 0% IV Notifications disabled! Use /settings to re-enable.")
-		}
-		return c.Reply("🚫 0% IV Notifications enabled!")
+		settingsMessage, replyMarkup := buildSettings(user)
+		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_cleanup"}, func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
 		updateUserPreference(user.ID, "Cleanup", !user.Cleanup)
-		if !user.Cleanup {
-			return c.Reply("🗑️ Cleanup Expired Notifications disabled! Use /settings to re-enable.")
-		}
-		return c.Reply("🗑️ Cleanup Expired Notifications enabled!")
+		settingsMessage, replyMarkup := buildSettings(user)
+		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "change_lang"}, func(c telebot.Context) error {
@@ -655,12 +667,12 @@ func setupBotHandlers(bot *telebot.Bot) {
 	// Handle setting language
 	bot.Handle(&telebot.InlineButton{Unique: "set_lang_en"}, func(c telebot.Context) error {
 		updateUserPreference(c.Sender().ID, "Language", "en")
-		return c.Edit("✅ Language (for Pokémon and Moves) set to *English*", telebot.ModeMarkdown)
+		return c.Edit("✅ Language (Pokémon & Moves) set to *English*", telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "set_lang_de"}, func(c telebot.Context) error {
 		updateUserPreference(c.Sender().ID, "Language", "de")
-		return c.Edit("✅ Language (for Pokémon and Moves) set to *Deutsch*", telebot.ModeMarkdown)
+		return c.Edit("✅ Language (Pokémon & Moves) set to *Deutsch*", telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "update_location"}, func(c telebot.Context) error {
@@ -669,7 +681,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			Text:     "📍 Send Location",
 			Location: true,
 		}
-		return c.Reply("📍 Please send your current location:", &telebot.ReplyMarkup{
+		return c.Send("📍 Please send your current location:", &telebot.ReplyMarkup{
 			ReplyKeyboard:  [][]telebot.ReplyButton{{btnShareLocation}},
 			ResizeKeyboard: true,
 		})
@@ -681,22 +693,22 @@ func setupBotHandlers(bot *telebot.Bot) {
 		// Update user location in the database
 		updateUserPreference(c.Sender().ID, "Latitude", location.Lat)
 		updateUserPreference(c.Sender().ID, "Longitude", location.Lng)
-		return c.Reply("✅ Location updated!")
+		return c.Send("✅ Location updated!")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "set_distance"}, func(c telebot.Context) error {
 		userStates[c.Sender().ID] = "set_distance"
-		return c.Reply("📏 Enter your preferred max distance (in m):")
+		return c.Send("📏 Enter your preferred max distance (in m):")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "set_min_iv"}, func(c telebot.Context) error {
 		userStates[c.Sender().ID] = "set_min_iv"
-		return c.Reply("✨ Enter the minimum IV percentage (0-100):")
+		return c.Send("✨ Enter the minimum IV percentage (0-100):")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "set_min_level"}, func(c telebot.Context) error {
 		userStates[c.Sender().ID] = "set_min_level"
-		return c.Reply("🔢 Enter the minimum Pokémon level (1-40):")
+		return c.Send("🔢 Enter the minimum Pokémon level (1-40):")
 	})
 
 	// Handle text input for max distance
@@ -708,7 +720,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &maxDistance)
 			if err != nil || maxDistance <= 0 {
-				return c.Reply("❌ Invalid input! Please enter a valid distance in m.")
+				return c.Send("❌ Invalid input! Please enter a valid distance in m.")
 			}
 
 			// Update max distance in the database
@@ -716,7 +728,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Reply(fmt.Sprintf("✅ Max distance updated to %dm!", maxDistance))
+			return c.Send(fmt.Sprintf("✅ Max distance updated to %dm!", maxDistance))
 		}
 		if userStates[userID] == "set_min_iv" {
 			var minIV int
@@ -724,7 +736,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &minIV)
 			if err != nil || minIV < 0 || minIV > 100 {
-				return c.Reply("❌ Invalid input! Please enter a valid IV percentage (0-100).")
+				return c.Send("❌ Invalid input! Please enter a valid IV percentage (0-100).")
 			}
 
 			// Update min IV in the database
@@ -732,7 +744,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Reply(fmt.Sprintf("✅ Minimum IV updated to %d%%!", minIV))
+			return c.Send(fmt.Sprintf("✅ Minimum IV updated to %d%%!", minIV))
 		}
 		if userStates[userID] == "set_min_level" {
 			var minLevel int
@@ -740,7 +752,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &minLevel)
 			if err != nil || minLevel < 0 || minLevel > 40 {
-				return c.Reply("❌ Invalid input! Please enter a valid level (0-40).")
+				return c.Send("❌ Invalid input! Please enter a valid level (0-40).")
 			}
 
 			// Update min IV in the database
@@ -748,7 +760,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Reply(fmt.Sprintf("✅ Minimum Level updated to %d!", minLevel))
+			return c.Send(fmt.Sprintf("✅ Minimum Level updated to %d!", minLevel))
 		}
 		return nil
 	})
