@@ -423,33 +423,33 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 
 func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 	// Create interactive buttons
-	notificationsText := "🔔 Disable all Notifications"
-	if !user.Notify {
-		notificationsText = "🔕 Enable all Notifications"
-	}
-	btnToggleNotifications := telebot.InlineButton{Text: notificationsText, Unique: "toggle_notifications"}
 	btnChangeLanguage := telebot.InlineButton{Text: "🌍 Change Language (Pokémon & Moves)", Unique: "change_lang"}
 	btnUpdateLocation := telebot.InlineButton{Text: "📍 Update Location", Unique: "update_location"}
 	btnSetDistance := telebot.InlineButton{Text: "📏 Set Max Distance", Unique: "set_distance"}
 	btnSetMinIV := telebot.InlineButton{Text: "✨ Set Min IV", Unique: "set_min_iv"}
 	btnSetMinLevel := telebot.InlineButton{Text: "🔢 Set Min Level", Unique: "set_min_level"}
+	notificationsText := "🔔 Disable all Notifications"
+	if !user.Notify {
+		notificationsText = "🔕 Enable all Notifications"
+	}
+	btnToggleNotifications := telebot.InlineButton{Text: notificationsText, Unique: "toggle_notifications"}
 	stickersText := "🎭 Do not show Pokémon Stickers"
 	if !user.Stickers {
 		stickersText = "🎭 Show Pokémon Stickers"
 	}
 	btnToggleStickers := telebot.InlineButton{Text: stickersText, Unique: "toggle_stickers"}
 	hundoText := "💯 Disable 100% IV Notifications"
-	if !user.Stickers {
+	if !user.HundoIV {
 		hundoText = "💯 Enable 100% IV Notifications"
 	}
 	btnToogleHundoIV := telebot.InlineButton{Text: hundoText, Unique: "toggle_hundo_iv"}
 	zeroText := "🚫 Disable 0% IV Notifications"
-	if !user.Stickers {
+	if !user.ZeroIV {
 		zeroText = "🚫 Enable 0% IV Notifications"
 	}
 	btnToogleZeroIV := telebot.InlineButton{Text: zeroText, Unique: "toggle_zero_iv"}
 	cleanupText := "🗑️ Keep Expired Notifications"
-	if !user.Stickers {
+	if !user.Cleanup {
 		cleanupText = "🗑️ Remove Expired Notifications"
 	}
 	btnToggleCleanup := telebot.InlineButton{Text: cleanupText, Unique: "toggle_cleanup"}
@@ -458,29 +458,29 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 	settingsMessage := fmt.Sprintf(
 		"⚙️ *Your Settings:*\n"+
 			"----------------------------------------------\n"+
-			"🔔 *Notifications:* %s\n"+
 			"🌍 *Language (Pokémon & Moves):* %s\n"+
 			"📍 *Location:* %.5f, %.5f\n"+
 			"📏 *Max Distance:* %dm\n"+
 			"✨ *Min IV:* %d%%\n"+
 			"🔢 *Min Level:* %d\n"+
+			"🔔 *Notifications:* %s\n"+
 			"🎭 *Pokémon Stickers:* %s\n"+
 			"💯 *100%% IV Notifications:* %s\n"+
 			"🚫 *0%% IV Notifications:* %s\n"+
 			"🗑️ *Cleanup Expired Notifications:* %s\n\n"+
 			"Use the buttons below to update your settings.",
-		boolToEmoji(user.Notify), user.Language, user.Latitude, user.Longitude, user.Distance,
-		user.MinIV, user.MinLevel, boolToEmoji(user.Stickers), boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV), boolToEmoji(user.Cleanup),
+		user.Language, user.Latitude, user.Longitude, user.Distance, user.MinIV, user.MinLevel,
+		boolToEmoji(user.Notify), boolToEmoji(user.Stickers), boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV), boolToEmoji(user.Cleanup),
 	)
 
 	return settingsMessage, &telebot.ReplyMarkup{
 		InlineKeyboard: [][]telebot.InlineButton{
-			{btnToggleNotifications},
 			{btnChangeLanguage},
 			{btnUpdateLocation},
 			{btnSetDistance},
 			{btnSetMinIV},
 			{btnSetMinLevel},
+			{btnToggleNotifications},
 			{btnToggleStickers},
 			{btnToogleHundoIV},
 			{btnToogleZeroIV},
