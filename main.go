@@ -726,7 +726,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &maxDistance)
 			if err != nil || maxDistance <= 0 {
-				return c.Edit("❌ Invalid input! Please enter a valid distance in m.")
+				return c.Send("❌ Invalid input! Please enter a valid distance in m.")
 			}
 
 			// Update max distance in the database
@@ -734,7 +734,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Edit(fmt.Sprintf("✅ Max distance updated to %dm!", maxDistance))
+			return c.Send(fmt.Sprintf("✅ Max distance updated to %dm!", maxDistance))
 		}
 		if userStates[userID] == "set_min_iv" {
 			var minIV int
@@ -742,7 +742,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &minIV)
 			if err != nil || minIV < 0 || minIV > 100 {
-				return c.Edit("❌ Invalid input! Please enter a valid IV percentage (0-100).")
+				return c.Send("❌ Invalid input! Please enter a valid IV percentage (0-100).")
 			}
 
 			// Update min IV in the database
@@ -750,7 +750,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Edit(fmt.Sprintf("✅ Minimum IV updated to %d%%!", minIV))
+			return c.Send(fmt.Sprintf("✅ Minimum IV updated to %d%%!", minIV))
 		}
 		if userStates[userID] == "set_min_level" {
 			var minLevel int
@@ -758,7 +758,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &minLevel)
 			if err != nil || minLevel < 0 || minLevel > 40 {
-				return c.Edit("❌ Invalid input! Please enter a valid level (0-40).")
+				return c.Send("❌ Invalid input! Please enter a valid level (0-40).")
 			}
 
 			// Update min IV in the database
@@ -766,7 +766,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Edit(fmt.Sprintf("✅ Minimum Level updated to %d!", minLevel))
+			return c.Send(fmt.Sprintf("✅ Minimum Level updated to %d!", minLevel))
 		}
 		return nil
 	})
