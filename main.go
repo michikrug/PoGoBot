@@ -669,7 +669,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "list_subscriptions"}, func(c telebot.Context) error {
-		return c.Edit("/list")
+		return bot.Trigger("/list", c)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "clear_subscriptions"}, func(c telebot.Context) error {
