@@ -126,6 +126,12 @@ var (
 			Help: "Total number of notifications sent",
 		},
 	)
+	messagesCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "bot_messages_total",
+			Help: "Total number of messages sent",
+		},
+	)
 	encounterGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "bot_encounters_count",
@@ -375,6 +381,7 @@ func sendSticker(bot *telebot.Bot, UserID int64, URL string, EncounterID string)
 	if err != nil {
 		log.Printf("❌ Failed to send sticker: %v", err)
 	} else {
+		messagesCounter.Inc()
 		// Store message ID for cleanup
 		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
 	}
@@ -385,6 +392,7 @@ func sendLocation(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Enco
 	if err != nil {
 		log.Printf("❌ Failed to send location: %v", err)
 	} else {
+		messagesCounter.Inc()
 		// Store message ID for cleanup
 		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
 	}
@@ -395,6 +403,7 @@ func sendVenue(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Title s
 	if err != nil {
 		log.Printf("❌ Failed to send venue: %v", err)
 	} else {
+		messagesCounter.Inc()
 		// Store message ID for cleanup
 		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
 	}
@@ -405,6 +414,7 @@ func sendMessage(bot *telebot.Bot, UserID int64, Text string, EncounterID string
 	if err != nil {
 		log.Printf("❌ Failed to send message: %v", err)
 	} else {
+		messagesCounter.Inc()
 		// Store message ID for cleanup
 		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
 	}
@@ -1123,6 +1133,7 @@ func startBackgroundProcessing(bot *telebot.Bot) {
 
 func init() {
 	customRegistry.MustRegister(notificationsCounter)
+	customRegistry.MustRegister(messagesCounter)
 	customRegistry.MustRegister(encounterGauge)
 	customRegistry.MustRegister(cleanupGauge)
 	customRegistry.MustRegister(usersGauge)
