@@ -835,16 +835,25 @@ func setupBotHandlers(bot *telebot.Bot) {
 		if _, ok := botAdmins[c.Sender().ID]; !ok {
 			return c.Edit("❌ You are not authorized to use this command")
 		}
+
 		var text strings.Builder
-		text.WriteString("📋 *All Users:*\n\n" +
-			fmt.Sprintf("👤 *Total Users:* %d\n", len(filteredUsers.AllUsers)) +
-			fmt.Sprintf("🔔 *Active Subscriptions:* %d\n", len(activeSubscriptions)))
+		text.WriteString(fmt.Sprintf("📋 *All Users:*\n\n👤 *Total Users:* %d\n🔔 *Active Subscriptions:* %d\n\n",
+			len(filteredUsers.AllUsers), len(activeSubscriptions)))
 
 		for _, user := range filteredUsers.AllUsers {
 			chat, _ := bot.ChatByID(user.ID)
-			text.WriteString(fmt.Sprintf("🔹 %d: %s (Notify: %s)\n", user.ID, chat.Username, boolToEmoji(user.Notify)))
+			entry := fmt.Sprintf("🔹 %d: %s (Notify: %s)\n", user.ID, chat.Username, boolToEmoji(user.Notify))
+			if text.Len()+len(entry) > 4000 { // Telegram message limit is 4096 bytes
+				c.Send(text.String(), telebot.ModeMarkdown)
+				text.Reset()
+			}
+			text.WriteString(entry)
 		}
-		return c.Edit(text.String(), telebot.ModeMarkdown)
+
+		if text.Len() > 0 {
+			return c.Send(text.String(), telebot.ModeMarkdown)
+		}
+		return nil
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "impersonate_user"}, func(c telebot.Context) error {
