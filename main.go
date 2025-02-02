@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/telebot.v3"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -116,6 +119,24 @@ var (
 		2: "\u2640", // Female
 		3: "\u26b2", // Genderless
 	}
+	notificationsCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "bot_notifications_total",
+			Help: "Total number of notifications sent.",
+		},
+	)
+	encounterGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "bot_encounters_total",
+			Help: "Total number of Pokémon encounters retrieved.",
+		},
+	)
+	cleanupGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "bot_cleanup_total",
+			Help: "Total number of expired notifications cleaned up.",
+		},
+	)
 )
 
 func (Pokemon) TableName() string {
@@ -420,6 +441,7 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 
 	sendMessage(bot, user.ID, notificationText.String(), *encounter.ExpireTimestamp)
 	notifiedEncounters[user.ID][encounter.Id] = struct{}{}
+	notificationsCounter.Inc()
 }
 
 func buildSettings(user User) (string, *telebot.ReplyMarkup) {
@@ -871,6 +893,7 @@ func processEncounters(bot *telebot.Bot) {
 	if err := dbEncounters.Where("iv IS NOT NULL").Where("updated > ?", lastCheck).Where("expire_timestamp > ?", lastCheck).Find(&encounters).Error; err != nil {
 		log.Printf("❌ Failed to fetch Pokémon encounters: %v", err)
 	} else {
+		encounterGauge.Set(float64(len(encounters)))
 		log.Printf("✅ Found %d Pokémon", len(encounters))
 
 		// Match encounters with subscriptions
@@ -937,6 +960,7 @@ func cleanupMessages(bot *telebot.Bot) {
 	if err := dbConfig.Where("expiration < ?", time.Now().Unix()).Find(&messages).Error; err != nil {
 		log.Printf("❌ Failed to fetch expired messages: %v", err)
 	} else {
+		cleanupGauge.Set(float64(len(messages)))
 		log.Printf("🗑️ Found %d expired messages", len(messages))
 		for _, message := range messages {
 			user := filteredUsers.AllUsers[message.ChatID]
@@ -970,6 +994,13 @@ func main() {
 		"ENCOUNTER_DB_USER", "ENCOUNTER_DB_PASS", "ENCOUNTER_DB_NAME", "ENCOUNTER_DB_HOST",
 	}
 	checkEnvVars(requiredVars)
+
+	// Start Prometheus metrics server
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		log.Println("🚀 Prometheus metrics available at /metrics")
+		log.Fatal(http.ListenAndServe(":9001", nil))
+	}()
 
 	userStates = make(map[int64]string)
 	notifiedEncounters = make(map[int64]map[string]struct{})
