@@ -22,6 +22,7 @@ type User struct {
 	Notify    bool    `gorm:"default:true"`
 	Language  string  `gorm:"default:'de'"`
 	Stickers  bool    `gorm:"default:true"`
+	OnlyMap   bool    `gorm:"default:false"`
 	Cleanup   bool    `gorm:"default:true"`
 	Latitude  float32 `gorm:"default:0"`
 	Longitude float32 `gorm:"default:0"`
@@ -428,6 +429,9 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 	btnSetDistance := telebot.InlineButton{Text: "📏 Set Max Distance", Unique: "set_distance"}
 	btnSetMinIV := telebot.InlineButton{Text: "✨ Set Min IV", Unique: "set_min_iv"}
 	btnSetMinLevel := telebot.InlineButton{Text: "🔢 Set Min Level", Unique: "set_min_level"}
+	btnAddSubscription := telebot.InlineButton{Text: "📣 Add Pokémon Alert", Unique: "add_subscription"}
+	btnListSubscriptions := telebot.InlineButton{Text: "📋 List Pokémon Alerts", Unique: "list_subscriptions"}
+	btnClearSubscriptions := telebot.InlineButton{Text: "🗑️ Clear Pokémon Alerts", Unique: "clear_subscriptions"}
 	notificationsText := "🔔 Disable all Notifications"
 	if !user.Notify {
 		notificationsText = "🔕 Enable all Notifications"
@@ -453,6 +457,7 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 		cleanupText = "🗑️ Remove Expired Notifications"
 	}
 	btnToggleCleanup := telebot.InlineButton{Text: cleanupText, Unique: "toggle_cleanup"}
+	btnClose := telebot.InlineButton{Text: "Close", Unique: "close"}
 
 	// Settings message
 	settingsMessage := fmt.Sprintf(
@@ -480,11 +485,15 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 			{btnSetDistance},
 			{btnSetMinIV},
 			{btnSetMinLevel},
+			{btnAddSubscription},
+			{btnListSubscriptions},
+			{btnClearSubscriptions},
 			{btnToggleNotifications},
 			{btnToggleStickers},
 			{btnToogleHundoIV},
 			{btnToogleZeroIV},
 			{btnToggleCleanup},
+			{btnClose},
 		},
 	}
 }
@@ -541,14 +550,21 @@ func setupBotHandlers(bot *telebot.Bot) {
 		user := getUserPreferences(c.Sender().ID)
 
 		var subs []Subscription
-		dbConfig.Where("user_id = ?", user.ID).Find(&subs)
-
-		if len(subs) == 0 {
-			return c.Send("You have no subscriptions.")
-		}
+		dbConfig.Where("user_id = ?", user.ID).Order("pokemon_id").Find(&subs)
 
 		var text strings.Builder
-		text.WriteString("📋 *Your Subscriptions:*\n\n")
+		text.WriteString("📋 *Your Pokémon Alerts:*\n\n")
+		if user.HundoIV {
+			text.WriteString(fmt.Sprintf("🔹 *All* (Min IV: 100%, Min Level: 0, Max Distance: %dm)\n", user.Distance))
+		}
+		if user.ZeroIV {
+			text.WriteString(fmt.Sprintf("🔹 *All* (Max IV: 0%, Min Level: 0, Max Distance: %dm)\n", user.Distance))
+		}
+
+		if len(subs) == 0 {
+			text.WriteString("🔹 You have no specific Pokémon alerts")
+		}
+
 		for _, sub := range subs {
 			var filters map[string]int
 			json.Unmarshal([]byte(sub.Filters), &filters)
@@ -619,6 +635,26 @@ func setupBotHandlers(bot *telebot.Bot) {
 		user := getUserPreferences(c.Sender().ID)
 		settingsMessage, replyMarkup := buildSettings(user)
 		return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "close"}, func(c telebot.Context) error {
+		return c.Edit("✅ Settings closed.")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "add_subscription"}, func(c telebot.Context) error {
+		userStates[c.Sender().ID] = "add_subscription"
+		return c.Edit("📣 Enter the Pokémon name you want to subscribe to:")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "list_subscriptions"}, func(c telebot.Context) error {
+		return c.Edit("/list")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "clear_subscriptions"}, func(c telebot.Context) error {
+		userID := c.Sender().ID
+		dbConfig.Where("user_id = ?", userID).Delete(&Subscription{})
+		getSubscriptionsByFilters()
+		return c.Edit("🗑️ All Pokémon alerts cleared!")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_notifications"}, func(c telebot.Context) error {
@@ -720,6 +756,62 @@ func setupBotHandlers(bot *telebot.Bot) {
 	// Handle text input for max distance
 	bot.Handle(telebot.OnText, func(c telebot.Context) error {
 		userID := c.Sender().ID
+		if userStates[userID] == "add_subscription" {
+			pokemonName := c.Text()
+			pokemonID, err := getPokemonID(pokemonName)
+			if err != nil {
+				return c.Send(fmt.Sprintf("❌ Can't find Pokedex # for Pokémon: %s", pokemonName))
+			}
+			userStates[userID] = fmt.Sprintf("add_subscription_iv_%d", pokemonID)
+			return c.Send(fmt.Sprintf("📣 Subscribing to %s alerts. Please enter the minimum IV percentage (0-100):", pokemonIDToName[filteredUsers.AllUsers[userID].Language][strconv.Itoa(pokemonID)]))
+		}
+		if strings.HasPrefix(userStates[userID], "add_subscription_iv") {
+			pokemonID, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[3])
+			var minIV int
+
+			// Parse user input
+			_, err := fmt.Sscanf(c.Text(), "%d", &minIV)
+			if err != nil || minIV < 0 || minIV > 100 {
+				return c.Send("❌ Invalid input! Please enter a valid IV percentage (0-100).")
+			}
+			userStates[userID] = fmt.Sprintf("add_subscription_level_%d_%d", pokemonID, minIV)
+			return c.Send(fmt.Sprintf("✨ Minimum IV set to %d%%. Please enter the minimum Pokémon level (0-40):", minIV))
+		}
+		if userStates[userID] == "add_subscription_level" {
+			pokemonID, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[3])
+			minIV, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[4])
+			var minLevel int
+
+			// Parse user input
+			_, err := fmt.Sscanf(c.Text(), "%d", &minLevel)
+			if err != nil || minLevel < 0 || minLevel > 40 {
+				return c.Send("❌ Invalid input! Please enter a valid level (0-40).")
+			}
+			userStates[userID] = fmt.Sprintf("add_subscription_distance_%d_%d_%d", pokemonID, minIV, minLevel)
+			return c.Send(fmt.Sprintf("🔢 Minimum level set to %d. Please enter the maximum distance (in m):", minLevel))
+		}
+		if userStates[userID] == "add_subscription_distance" {
+			pokemonID, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[3])
+			minIV, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[4])
+			minLevel, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[5])
+			var maxDistance int
+
+			// Parse user input
+			_, err := fmt.Sscanf(c.Text(), "%d", &maxDistance)
+			if err != nil || maxDistance <= 0 {
+				return c.Send("❌ Invalid input! Please enter a valid distance in m.")
+			}
+
+			// Subscribe user to Pokémon
+			addSubscription(userID, pokemonID, minIV, minLevel, maxDistance)
+
+			userStates[userID] = ""
+
+			return c.Send(fmt.Sprintf("✅ Subscribed to %s alerts (Min IV: %d%%, Min Level: %d, Max Distance: %dm)",
+				pokemonIDToName[filteredUsers.AllUsers[userID].Language][strconv.Itoa(pokemonID)],
+				minIV, minLevel, maxDistance,
+			))
+		}
 		if userStates[userID] == "set_distance" {
 			var maxDistance int
 
