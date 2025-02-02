@@ -1080,7 +1080,7 @@ func processEncounters(bot *telebot.Bot) {
 			}
 			// Check for Channel Users
 			for _, user := range filteredUsers.ChannelUser {
-				if user.MinIV == 0 || user.MinLevel == 0 {
+				if user.MinIV == 0 && user.MinLevel == 0 {
 					continue
 				}
 				if user.MinLevel == 0 && *encounter.IV >= float32(user.MinIV) ||
