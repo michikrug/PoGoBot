@@ -27,8 +27,8 @@ type User struct {
 	Stickers    bool    `gorm:"not null;default:true"`
 	OnlyMap     bool    `gorm:"not null;default:false"`
 	Cleanup     bool    `gorm:"not null;default:true"`
-	Latitude    float32 `gorm:"not null;default:0;type:double(14;10)"`
-	Longitude   float32 `gorm:"not null;default:0;type:double(14;10)"`
+	Latitude    float32 `gorm:"not null;default:0;type:double(14,10)"`
+	Longitude   float32 `gorm:"not null;default:0;type:double(14,10)"`
 	MaxDistance int     `gorm:"not null;default:0;type:mediumint(6)"`
 	HundoIV     bool    `gorm:"not null;default:false"`
 	ZeroIV      bool    `gorm:"not null;default:false"`
