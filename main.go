@@ -669,6 +669,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "list_subscriptions"}, func(c telebot.Context) error {
+		c.Delete()
 		return bot.Trigger("/list", c)
 	})
 
@@ -799,7 +800,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			userStates[userID] = fmt.Sprintf("add_subscription_level_%d_%d", pokemonID, minIV)
 			return c.Send(fmt.Sprintf("✨ Minimum IV set to %d%%. Please enter the minimum Pokémon level (0-40):", minIV))
 		}
-		if userStates[userID] == "add_subscription_level" {
+		if strings.HasPrefix(userStates[userID], "add_subscription_level") {
 			pokemonID, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[3])
 			minIV, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[4])
 			var minLevel int
@@ -812,7 +813,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			userStates[userID] = fmt.Sprintf("add_subscription_distance_%d_%d_%d", pokemonID, minIV, minLevel)
 			return c.Send(fmt.Sprintf("🔢 Minimum level set to %d. Please enter the maximum distance (in m):", minLevel))
 		}
-		if userStates[userID] == "add_subscription_distance" {
+		if strings.HasPrefix(userStates[userID], "add_subscription_distance") {
 			pokemonID, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[3])
 			minIV, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[4])
 			minLevel, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[5])
