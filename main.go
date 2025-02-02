@@ -122,19 +122,19 @@ var (
 	notificationsCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "bot_notifications_total",
-			Help: "Total number of notifications sent.",
+			Help: "Total number of notifications sent",
 		},
 	)
 	encounterGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "bot_encounters_total",
-			Help: "Total number of Pokémon encounters retrieved.",
+			Help: "Total number of Pokémon encounters retrieved",
 		},
 	)
 	cleanupGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "bot_cleanup_total",
-			Help: "Total number of expired notifications cleaned up.",
+			Help: "Total number of expired notifications cleaned up",
 		},
 	)
 )
@@ -495,7 +495,7 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 			"💯 *100%% IV Notifications:* %s\n"+
 			"🚫 *0%% IV Notifications:* %s\n"+
 			"🗑️ *Cleanup Expired Notifications:* %s\n\n"+
-			"Use the buttons below to update your settings.",
+			"Use the buttons below to update your settings",
 		user.Language, user.Latitude, user.Longitude, user.Distance, user.MinIV, user.MinLevel,
 		boolToEmoji(user.Notify), boolToEmoji(user.Stickers), boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV), boolToEmoji(user.Cleanup),
 	)
@@ -541,19 +541,19 @@ func setupBotHandlers(bot *telebot.Bot) {
 		if len(args) > 1 {
 			minIV, err = strconv.Atoi(args[1])
 			if err != nil || minIV < 0 || minIV > 100 {
-				return c.Send("❌ Invalid IV input! Please enter a valid IV percentage (0-100).")
+				return c.Send("❌ Invalid IV input! Please enter a valid IV percentage (0-100)")
 			}
 		}
 		if len(args) > 2 {
 			minLevel, err = strconv.Atoi(args[2])
 			if err != nil || minLevel < 0 || minLevel > 40 {
-				return c.Send("❌ Invalid level input! Please enter a valid level (0-40).")
+				return c.Send("❌ Invalid level input! Please enter a valid level (0-40)")
 			}
 		}
 		if len(args) > 3 {
 			maxDistance, err = strconv.Atoi(args[3])
 			if err != nil || maxDistance < 0 {
-				return c.Send("❌ Invalid distance input! Please enter a valid distance in m.")
+				return c.Send("❌ Invalid distance input! Please enter a valid distance in m")
 			}
 		}
 
@@ -628,7 +628,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 		updateUserPreference(userID, "Latitude", location.Lat)
 		updateUserPreference(userID, "Longitude", location.Lng)
 
-		return c.Send("📍 Location updated! Your preferences will now consider this.")
+		return c.Send("📍 Location updated! Your preferences will now consider this")
 	})
 
 	bot.Handle("/start", func(c telebot.Context) error {
@@ -645,8 +645,8 @@ func setupBotHandlers(bot *telebot.Bot) {
 			"👋 Welcome to the PoGo Notification Bot!\n\n"+
 				"🔹 Language (Pokémon & Moves) detected: *%s*\n"+
 				"🔹 Send me your 📍 *location* to enable distance-based notifications.\n"+
-				"✅ Use /settings to update your preferences.\n"+
-				"✅ Use /subscribe <pokemon_name> [min-iv] [min-level] [max-distance] to get notified about specific Pokémon!",
+				"✅ Use /settings to update your preferences\n"+
+				"✅ Use /subscribe <pokemon_name> [min-iv] [min-level] [max-distance] to get notified about specific Pokémon",
 			lang,
 		)
 
@@ -660,7 +660,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "close"}, func(c telebot.Context) error {
-		return c.Edit("✅ Settings closed.")
+		return c.Edit("✅ Settings closed")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "add_subscription"}, func(c telebot.Context) error {
@@ -677,7 +677,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 		userID := c.Sender().ID
 		dbConfig.Where("user_id = ?", userID).Delete(&Subscription{})
 		getSubscriptionsByFilters()
-		return c.Edit("🗑️ All Pokémon alerts cleared!")
+		return c.Edit("🗑️ All Pokémon alerts cleared")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_notifications"}, func(c telebot.Context) error {
@@ -758,7 +758,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 		// Update user location in the database
 		updateUserPreference(c.Sender().ID, "Latitude", location.Lat)
 		updateUserPreference(c.Sender().ID, "Longitude", location.Lng)
-		return c.Edit("✅ Location updated!")
+		return c.Edit("✅ Location updated")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "set_distance"}, func(c telebot.Context) error {
@@ -795,7 +795,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &minIV)
 			if err != nil || minIV < 0 || minIV > 100 {
-				return c.Send("❌ Invalid input! Please enter a valid IV percentage (0-100).")
+				return c.Send("❌ Invalid input! Please enter a valid IV percentage (0-100)")
 			}
 			userStates[userID] = fmt.Sprintf("add_subscription_level_%d_%d", pokemonID, minIV)
 			return c.Send(fmt.Sprintf("✨ Minimum IV set to %d%%. Please enter the minimum Pokémon level (0-40):", minIV))
@@ -808,7 +808,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &minLevel)
 			if err != nil || minLevel < 0 || minLevel > 40 {
-				return c.Send("❌ Invalid input! Please enter a valid level (0-40).")
+				return c.Send("❌ Invalid input! Please enter a valid level (0-40)")
 			}
 			userStates[userID] = fmt.Sprintf("add_subscription_distance_%d_%d_%d", pokemonID, minIV, minLevel)
 			return c.Send(fmt.Sprintf("🔢 Minimum level set to %d. Please enter the maximum distance (in m):", minLevel))
@@ -822,7 +822,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &maxDistance)
 			if err != nil || maxDistance < 0 {
-				return c.Send("❌ Invalid input! Please enter a valid distance in m.")
+				return c.Send("❌ Invalid input! Please enter a valid distance in m")
 			}
 
 			// Subscribe user to Pokémon
@@ -841,7 +841,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &maxDistance)
 			if err != nil || maxDistance < 0 {
-				return c.Send("❌ Invalid input! Please enter a valid distance in m.")
+				return c.Send("❌ Invalid input! Please enter a valid distance in m")
 			}
 
 			// Update max distance in the database
@@ -849,7 +849,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Send(fmt.Sprintf("✅ Max distance updated to %dm!", maxDistance))
+			return c.Send(fmt.Sprintf("✅ Max distance updated to %dm", maxDistance))
 		}
 		if userStates[userID] == "set_min_iv" {
 			var minIV int
@@ -857,7 +857,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &minIV)
 			if err != nil || minIV < 0 || minIV > 100 {
-				return c.Send("❌ Invalid input! Please enter a valid IV percentage (0-100).")
+				return c.Send("❌ Invalid input! Please enter a valid IV percentage (0-100)")
 			}
 
 			// Update min IV in the database
@@ -865,7 +865,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Send(fmt.Sprintf("✅ Minimum IV updated to %d%%!", minIV))
+			return c.Send(fmt.Sprintf("✅ Minimum IV updated to %d%%", minIV))
 		}
 		if userStates[userID] == "set_min_level" {
 			var minLevel int
@@ -873,7 +873,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &minLevel)
 			if err != nil || minLevel < 0 || minLevel > 40 {
-				return c.Send("❌ Invalid input! Please enter a valid level (0-40).")
+				return c.Send("❌ Invalid input! Please enter a valid level (0-40)")
 			}
 
 			// Update min IV in the database
@@ -881,7 +881,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			userStates[userID] = ""
 
-			return c.Send(fmt.Sprintf("✅ Minimum Level updated to %d!", minLevel))
+			return c.Send(fmt.Sprintf("✅ Minimum Level updated to %d", minLevel))
 		}
 		return nil
 	})
