@@ -657,7 +657,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 		if user.ZeroIV {
 			text.WriteString(fmt.Sprintf("🔹 *All* (Max IV: 0%%, Min Level: 0, Max Distance: %dm)\n", user.MaxDistance))
 		}
-		c.Send(text.String(, telebot.ModeMarkdown)
+		c.Send(text.String(), telebot.ModeMarkdown)
 		text.Reset()
 
 		var subs []Subscription
@@ -789,6 +789,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 		user := getUserPreferences(getUserID(c))
 		user.Notify = !user.Notify
 		updateUserPreference(user.ID, "Notify", user.Notify)
+		getActiveSubscriptions()
 		settingsMessage, replyMarkup := buildSettings(user)
 		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
