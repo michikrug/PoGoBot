@@ -426,6 +426,7 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	if err := dbConfig.Where("encounter_id = ? AND chat_id = ?", encounter.ID, user.ID).First(&message).Error; err == nil {
 		return
 	}
+	log.Printf("🔔 Sending notification for Pokémon #%s to %s", encounter.PokemonID, user.ID)
 	dbConfig.Save(&Encounter{ID: encounter.ID, Expiration: *encounter.ExpireTimestamp})
 	notificationsCounter.Inc()
 
