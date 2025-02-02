@@ -696,6 +696,27 @@ func setupBotHandlers(bot *telebot.Bot) {
 		return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
+	bot.Handle("/help", func(c telebot.Context) error {
+		helpMessage := "🤖 *PoGo Notification Bot Commands:*\n\n" +
+			"🔔 /settings - Update your preferences\n" +
+			"📋 /list - List your Pokémon alerts\n" +
+			"📣 /subscribe <pokemon_name> [min-iv] [min-level] [max-distance] - Subscribe to Pokémon alerts\n" +
+			"🚫 /unsubscribe <pokemon_name> - Unsubscribe from Pokémon alerts"
+		return c.Send(helpMessage, telebot.ModeMarkdown)
+	})
+
+	bot.Handle("/reset", func(c telebot.Context) error {
+		userID := c.Sender().ID
+		if _, ok := botAdmins[userID]; !ok {
+			return c.Edit("❌ You are not authorized to use this command")
+		}
+		if botAdmins[userID] == userID {
+			return c.Send("🔒 You are not impersonating another user")
+		}
+		botAdmins[userID] = userID
+		return c.Send("🔒 You are now back as yourself")
+	})
+
 	bot.Handle(&telebot.InlineButton{Unique: "close"}, func(c telebot.Context) error {
 		return c.Edit("✅ Settings closed")
 	})
@@ -758,7 +779,6 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "change_lang"}, func(c telebot.Context) error {
-		// Create language selection buttons
 		btnEn := telebot.InlineButton{Text: "🇬🇧 English", Unique: "set_lang_en"}
 		btnDe := telebot.InlineButton{Text: "🇩🇪 Deutsch", Unique: "set_lang_de"}
 		return c.Edit("🌍 *Select a language:*", &telebot.ReplyMarkup{
@@ -766,7 +786,6 @@ func setupBotHandlers(bot *telebot.Bot) {
 		}, telebot.ModeMarkdown)
 	})
 
-	// Handle setting language
 	bot.Handle(&telebot.InlineButton{Unique: "set_lang_en"}, func(c telebot.Context) error {
 		updateUserPreference(getUserID(c), "Language", "en")
 		return c.Edit("✅ Language (Pokémon & Moves) set to *English*", telebot.ModeMarkdown)
@@ -787,16 +806,6 @@ func setupBotHandlers(bot *telebot.Bot) {
 			ReplyKeyboard:  [][]telebot.ReplyButton{{btnShareLocation}},
 			ResizeKeyboard: true,
 		})
-	})
-
-	// Handle receiving location
-	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
-		location := c.Message().Location
-		// Update user location in the database
-		userID := getUserID(c)
-		updateUserPreference(userID, "Latitude", location.Lat)
-		updateUserPreference(userID, "Longitude", location.Lng)
-		return c.Edit("✅ Location updated")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "set_distance"}, func(c telebot.Context) error {
@@ -846,7 +855,17 @@ func setupBotHandlers(bot *telebot.Bot) {
 		return c.Edit("👤 Enter the user ID you want to impersonate:")
 	})
 
-	// Handle text input for max distance
+	// Handle location input
+	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
+		location := c.Message().Location
+		// Update user location in the database
+		userID := getUserID(c)
+		updateUserPreference(userID, "Latitude", location.Lat)
+		updateUserPreference(userID, "Longitude", location.Lng)
+		return c.Edit("✅ Location updated")
+	})
+
+	// Handle text input
 	bot.Handle(telebot.OnText, func(c telebot.Context) error {
 		userID := c.Sender().ID
 		if userStates[userID] == "add_subscription" {
