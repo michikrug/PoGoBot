@@ -435,6 +435,9 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	}
 	log.Printf("🔔 Sending notification for Pokémon #%d to %d", encounter.PokemonID, user.ID)
 	dbConfig.Save(&Encounter{ID: encounter.ID, Expiration: *encounter.ExpireTimestamp})
+	if sentNotifications[encounter.ID] == nil {
+		sentNotifications[encounter.ID] = make(map[int64]struct{})
+	}
 	sentNotifications[encounter.ID][user.ID] = struct{}{}
 	notificationsCounter.Inc()
 
