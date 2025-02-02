@@ -49,20 +49,20 @@ type Subscription struct {
 	Filters   string `gorm:"not null,default:\"{ \\\"min_iv\\\": 0, \\\"min_level\\\": 0, \\\"max_distance\\\": 0 }\",type:json"`
 }
 
-type FilteredSubscriptions struct {
-	AllSubscriptions    map[int][]Subscription
-	ActiveSubscriptions map[int][]Subscription
+type Encounter struct {
+	ID         string `gorm:"primaryKey,type:varchar(25)"`
+	Expiration int    `gorm:"not null,index,type:int(10)"`
 }
 
 type Message struct {
-	ID         int   `gorm:"primaryKey"`
-	ChatID     int64 `gorm:"not null"`
-	MessageID  int   `gorm:"not null"`
-	Expiration int   `gorm:"not null,index,type:int(10)"`
+	ID          int    `gorm:"primaryKey"`
+	EncounterID string `gorm:"not null,index,type:varchar(25)"`
+	ChatID      int64  `gorm:"not null"`
+	MessageID   int    `gorm:"not null"`
 }
 
 type Pokemon struct {
-	Id                      string `gorm:"primaryKey"`
+	ID                      string `gorm:"primaryKey"`
 	PokestopID              *string
 	SpawnID                 *int64
 	Lat                     float32
@@ -72,11 +72,11 @@ type Pokemon struct {
 	Height                  *float32
 	ExpireTimestamp         *int
 	Updated                 *int
-	PokemonId               int
+	PokemonID               int
 	Move1                   *int `gorm:"column:move_1"`
 	Move2                   *int `gorm:"column:move_2"`
 	Gender                  *int
-	Cp                      *int
+	CP                      *int
 	AtkIV                   *int
 	DefIV                   *int
 	StaIV                   *int
@@ -88,9 +88,9 @@ type Pokemon struct {
 	Costume                 *int
 	FirstSeenTimestamp      int
 	Changed                 int
-	CellId                  *int64
+	CellID                  *int64
 	ExpireTimestampVerified bool
-	DisplayPokemonId        *int
+	DisplayPokemonID        *int
 	IsDitto                 bool
 	SeenType                *string
 	Shiny                   *bool
@@ -98,23 +98,22 @@ type Pokemon struct {
 	Capture1                *float32 `gorm:"column:capture_1"`
 	Capture2                *float32 `gorm:"column:capture_2"`
 	Capture3                *float32 `gorm:"column:capture_2"`
-	Pvp                     *string
+	PVP                     *string
 	IsEvent                 int
 	IV                      *float32
 }
 
 var (
-	dbConfig              *gorm.DB // Stores user subscriptions
-	dbScanner             *gorm.DB // Fetches Pokémon encounters
-	userStates            map[int64]string
-	filteredUsers         FilteredUsers
-	filteredSubscriptions FilteredSubscriptions
-	notifiedEncounters    map[int64]map[string]struct{}
-	pokemonNameToID       map[string]int
-	pokemonIDToName       map[string]map[string]string
-	moveIDToName          map[string]map[string]string
-	timezone              *time.Location // Local timezone
-	gender                = map[int]string{
+	dbConfig            *gorm.DB // Stores user subscriptions
+	dbScanner           *gorm.DB // Fetches Pokémon encounters
+	userStates          map[int64]string
+	filteredUsers       FilteredUsers
+	activeSubscriptions map[int][]Subscription
+	pokemonNameToID     map[string]int
+	pokemonIDToName     map[string]map[string]string
+	moveIDToName        map[string]map[string]string
+	timezone            *time.Location // Local timezone
+	gender              = map[int]string{
 		1: "\u2642", // Male
 		2: "\u2640", // Female
 		3: "\u26b2", // Genderless
@@ -128,14 +127,32 @@ var (
 	)
 	encounterGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "bot_encounters_total",
+			Name: "bot_encounters_count",
 			Help: "Total number of Pokémon encounters retrieved",
 		},
 	)
 	cleanupGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "bot_cleanup_total",
+			Name: "bot_cleanup_count",
 			Help: "Total number of expired notifications cleaned up",
+		},
+	)
+	usersGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "bot_users_count",
+			Help: "Total number of users subscribed to notifications",
+		},
+	)
+	subscriptionGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "bot_subscription_count",
+			Help: "Total number of Pokémon subscriptions",
+		},
+	)
+	activeSubscriptionGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "bot_subscription_active_count",
+			Help: "Total number of active Pokémon subscriptions",
 		},
 	)
 )
@@ -196,7 +213,7 @@ func initDB() {
 	}
 	log.Println("✅ Connected to bot database")
 
-	dbConfig.AutoMigrate(&User{}, &Subscription{}, &Message{})
+	dbConfig.AutoMigrate(&User{}, &Subscription{}, &Message{}, &Encounter{})
 
 	// Existing Pokémon encounter database
 	scannerDSN := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", scannerDBUser, scannerDBPass, scannerDBHost, scannerDBName)
@@ -318,7 +335,7 @@ func addSubscription(userID int64, pokemonID int, minIV int, minLevel int, maxDi
 		existingSub.Filters = filters
 		dbConfig.Save(&existingSub)
 	}
-	getSubscriptionsByFilters()
+	getActiveSubscriptions()
 }
 
 func getUsersByFilters() {
@@ -332,8 +349,8 @@ func getUsersByFilters() {
 	dbConfig.Find(&users)
 	for _, user := range users {
 		filteredUsers.AllUsers[user.ID] = user
-		notifiedEncounters[user.ID] = make(map[string]struct{})
 	}
+	usersGauge.Set(float64(len(filteredUsers.AllUsers)))
 
 	for _, user := range filteredUsers.AllUsers {
 		if user.Notify {
@@ -348,78 +365,79 @@ func getUsersByFilters() {
 	}
 }
 
-func getSubscriptionsByFilters() {
-	filteredSubscriptions = FilteredSubscriptions{
-		AllSubscriptions:    make(map[int][]Subscription),
-		ActiveSubscriptions: make(map[int][]Subscription),
-	}
-
+func getActiveSubscriptions() {
+	activeSubscriptions := make(map[int][]Subscription)
+	activeSubscriptionCount := 0
 	var subscriptions []Subscription
 	dbConfig.Find(&subscriptions)
 	for _, subscription := range subscriptions {
-		filteredSubscriptions.AllSubscriptions[subscription.PokemonID] = append(filteredSubscriptions.AllSubscriptions[subscription.PokemonID], subscription)
 		if filteredUsers.AllUsers[subscription.UserID].Notify {
-			filteredSubscriptions.ActiveSubscriptions[subscription.PokemonID] = append(filteredSubscriptions.ActiveSubscriptions[subscription.PokemonID], subscription)
+			activeSubscriptionCount++
+			activeSubscriptions[subscription.PokemonID] = append(activeSubscriptions[subscription.PokemonID], subscription)
 		}
 	}
+	subscriptionGauge.Set(float64(len(subscriptions)))
+	activeSubscriptionGauge.Set(float64(activeSubscriptionCount))
 }
 
-func sendSticker(bot *telebot.Bot, UserID int64, URL string, Expiration int) {
+func sendSticker(bot *telebot.Bot, UserID int64, URL string, EncounterID string) {
 	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Sticker{File: telebot.FromURL(URL)}, &telebot.SendOptions{DisableNotification: true})
 	if err != nil {
 		log.Printf("❌ Failed to send sticker: %v", err)
 	} else {
 		// Store message ID for cleanup
-		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, Expiration: Expiration})
+		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
 	}
 }
 
-func sendLocation(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Expiration int) {
+func sendLocation(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, EncounterID string) {
 	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Location{Lat: Lat, Lng: Lon}, &telebot.SendOptions{DisableNotification: true})
 	if err != nil {
 		log.Printf("❌ Failed to send location: %v", err)
 	} else {
 		// Store message ID for cleanup
-		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, Expiration: Expiration})
+		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
 	}
 }
 
-func sendMessage(bot *telebot.Bot, UserID int64, Text string, Expiration int) {
+func sendMessage(bot *telebot.Bot, UserID int64, Text string, EncounterID string) {
 	message, err := bot.Send(&telebot.User{ID: UserID}, Text, telebot.ModeMarkdown)
 	if err != nil {
 		log.Printf("❌ Failed to send message: %v", err)
 	} else {
 		// Store message ID for cleanup
-		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, Expiration: Expiration})
+		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
 	}
 }
 
 func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
-	if _, alreadySent := notifiedEncounters[user.ID][encounter.Id]; alreadySent {
+	// Check if encounter has already been notified
+	var message Message
+	if err := dbConfig.Where("encounter_id = ? AND chat_id = ?", encounter.ID, user.ID).First(&message).Error; err == nil {
 		return
 	}
 
 	genderSymbol := gender[*encounter.Gender]
 
-	var url = fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d.webp", encounter.PokemonId)
+	var url = fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d.webp", encounter.PokemonID)
 
 	if user.Stickers {
-		sendSticker(bot, user.ID, url, *encounter.ExpireTimestamp)
+		sendSticker(bot, user.ID, url, encounter.ID)
 	}
-	sendLocation(bot, user.ID, encounter.Lat, encounter.Lon, *encounter.ExpireTimestamp)
+	sendLocation(bot, user.ID, encounter.Lat, encounter.Lon, encounter.ID)
 
 	expireTime := time.Unix(int64(*encounter.ExpireTimestamp), 0).In(timezone)
 	timeLeft := time.Until(expireTime)
 
 	var notificationText strings.Builder
 	notificationText.WriteString(fmt.Sprintf("*🔔 %s %s %.1f%% %d|%d|%d %dCP L%d*\n",
-		pokemonIDToName[user.Language][strconv.Itoa(encounter.PokemonId)],
+		pokemonIDToName[user.Language][strconv.Itoa(encounter.PokemonID)],
 		genderSymbol,
 		*encounter.IV,
 		*encounter.AtkIV,
 		*encounter.DefIV,
 		*encounter.StaIV,
-		*encounter.Cp,
+		*encounter.CP,
 		*encounter.Level,
 	))
 
@@ -440,8 +458,8 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 		moveIDToName[user.Language][strconv.Itoa(*encounter.Move1)],
 		moveIDToName[user.Language][strconv.Itoa(*encounter.Move2)]))
 
-	sendMessage(bot, user.ID, notificationText.String(), *encounter.ExpireTimestamp)
-	notifiedEncounters[user.ID][encounter.Id] = struct{}{}
+	sendMessage(bot, user.ID, notificationText.String(), encounter.ID)
+	dbConfig.Save(&Encounter{ID: encounter.ID, Expiration: *encounter.ExpireTimestamp})
 	notificationsCounter.Inc()
 }
 
@@ -615,7 +633,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 		userID := c.Sender().ID
 		dbConfig.Where("user_id = ? AND pokemon_id = ?", userID, pokemonID).Delete(&Subscription{})
 
-		getSubscriptionsByFilters()
+		getActiveSubscriptions()
 
 		user := getUserPreferences(userID)
 
@@ -677,7 +695,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	bot.Handle(&telebot.InlineButton{Unique: "clear_subscriptions"}, func(c telebot.Context) error {
 		userID := c.Sender().ID
 		dbConfig.Where("user_id = ?", userID).Delete(&Subscription{})
-		getSubscriptionsByFilters()
+		getActiveSubscriptions()
 		return c.Edit("🗑️ All Pokémon alerts cleared")
 	})
 
@@ -925,7 +943,7 @@ func processEncounters(bot *telebot.Bot) {
 				}
 			}
 			// Check for subscribed Pokémon
-			if subs, exists := filteredSubscriptions.ActiveSubscriptions[encounter.PokemonId]; exists {
+			if subs, exists := activeSubscriptions[encounter.PokemonID]; exists {
 				for _, sub := range subs {
 					var filters map[string]int
 					json.Unmarshal([]byte(sub.Filters), &filters)
@@ -957,21 +975,30 @@ func processEncounters(bot *telebot.Bot) {
 }
 
 func cleanupMessages(bot *telebot.Bot) {
-	// Cleanup expired messages
-	var messages []Message
-	if err := dbConfig.Where("expiration < ?", time.Now().Unix()).Find(&messages).Error; err != nil {
-		log.Printf("❌ Failed to fetch expired messages: %v", err)
-	} else {
-		cleanupGauge.Set(float64(len(messages)))
-		log.Printf("🗑️ Found %d expired messages", len(messages))
+	deletedMessagesCount := 0
+	var encounters []Encounter
+	dbConfig.Where("expiration < ?", time.Now().Unix()).Find(&encounters)
+	log.Printf("🗑️ Found %d expired encounters", len(encounters))
+
+	for _, encounter := range encounters {
+		var messages []Message
+		dbConfig.Where("encounter_id = ?", encounter.ID).Find(&messages)
+		log.Printf("🗑️ Found %d expired messages for encounter %s", len(messages), encounter.ID)
+
 		for _, message := range messages {
 			user := filteredUsers.AllUsers[message.ChatID]
 			if user.Cleanup {
-				bot.Delete(&telebot.StoredMessage{MessageID: strconv.Itoa(message.MessageID), ChatID: message.ChatID})
+				deletedMessagesCount++
+				if err := bot.Delete(&telebot.StoredMessage{MessageID: strconv.Itoa(message.MessageID), ChatID: message.ChatID}); err != nil {
+					log.Printf("❌ Failed to delete message %d for user %d: %v", message.MessageID, message.ChatID, err)
+				}
 			}
 			dbConfig.Delete(&message)
 		}
+		dbConfig.Delete(&encounter)
 	}
+
+	cleanupGauge.Set(float64(deletedMessagesCount))
 }
 
 func startBackgroundProcessing(bot *telebot.Bot) {
@@ -1015,7 +1042,6 @@ func main() {
 	startMetricsServer()
 
 	userStates = make(map[int64]string)
-	notifiedEncounters = make(map[int64]map[string]struct{})
 
 	// Load Pokémon mappings
 	loadAllLanguages()
@@ -1027,7 +1053,7 @@ func main() {
 	getUsersByFilters()
 
 	// Load subscriptions into a map
-	getSubscriptionsByFilters()
+	getActiveSubscriptions()
 
 	var err error
 	if timezone, err = time.LoadLocation("Local"); err != nil {
