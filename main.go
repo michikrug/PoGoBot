@@ -40,6 +40,7 @@ type FilteredUsers struct {
 	AllUsers     map[int64]User
 	HundoIVUsers []User
 	ZeroIVUsers  []User
+	ChannelUser  []User
 }
 
 type Subscription struct {
@@ -339,6 +340,7 @@ func getUsersByFilters() {
 		AllUsers:     make(map[int64]User),
 		HundoIVUsers: []User{},
 		ZeroIVUsers:  []User{},
+		ChannelUser:  []User{},
 	}
 
 	var users []User
@@ -357,7 +359,9 @@ func getUsersByFilters() {
 			if user.ZeroIV {
 				filteredUsers.ZeroIVUsers = append(filteredUsers.ZeroIVUsers, user)
 			}
-
+			if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
+				filteredUsers.ChannelUser = append(filteredUsers.ChannelUser, user)
+			}
 		}
 	}
 }
@@ -1043,7 +1047,7 @@ func processEncounters(bot *telebot.Bot) {
 		// Match encounters with subscriptions
 		for _, encounter := range encounters {
 			// Check for 100% IV Pokémon
-			if encounter.IV != nil && *encounter.IV == 100 {
+			if *encounter.IV == 100 {
 				for _, user := range filteredUsers.HundoIVUsers {
 					if user.Latitude != 0 && user.Longitude != 0 && user.MaxDistance > 0 {
 						distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
@@ -1055,7 +1059,7 @@ func processEncounters(bot *telebot.Bot) {
 				}
 			}
 			// Check for 0% IV Pokémon
-			if encounter.IV != nil && *encounter.IV == 0 {
+			if *encounter.IV == 0 {
 				for _, user := range filteredUsers.ZeroIVUsers {
 					if user.Latitude != 0 && user.Longitude != 0 && user.MaxDistance > 0 {
 						distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
@@ -1063,6 +1067,17 @@ func processEncounters(bot *telebot.Bot) {
 							continue
 						}
 					}
+					sendEncounterNotification(bot, user, encounter)
+				}
+			}
+			// Check for Channel Users
+			for _, user := range filteredUsers.ChannelUser {
+				if user.MinIV == 0 || user.MinLevel == 0 {
+					continue
+				}
+				if user.MinLevel == 0 && *encounter.IV >= float32(user.MinIV) ||
+					user.MinIV == 0 && *encounter.Level >= user.MinLevel ||
+					*encounter.IV >= float32(user.MinIV) && *encounter.Level >= user.MinLevel {
 					sendEncounterNotification(bot, user, encounter)
 				}
 			}
