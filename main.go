@@ -983,6 +983,20 @@ func startBackgroundProcessing(bot *telebot.Bot) {
 	}()
 }
 
+func init() {
+	prometheus.MustRegister(notificationsCounter)
+	prometheus.MustRegister(encounterGauge)
+	prometheus.MustRegister(cleanupGauge)
+}
+
+func startMetricsServer() {
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		log.Println("🚀 Prometheus metrics available at /metrics")
+		log.Fatal(http.ListenAndServe(":9001", nil))
+	}()
+}
+
 func main() {
 	// Load .env file
 	if err := godotenv.Load(); err != nil {
@@ -996,11 +1010,7 @@ func main() {
 	checkEnvVars(requiredVars)
 
 	// Start Prometheus metrics server
-	http.Handle("/metrics", promhttp.Handler())
-	go func() {
-		log.Println("🚀 Prometheus metrics available at /metrics")
-		log.Fatal(http.ListenAndServe(":9001", nil))
-	}()
+	startMetricsServer()
 
 	userStates = make(map[int64]string)
 	notifiedEncounters = make(map[int64]map[string]struct{})
