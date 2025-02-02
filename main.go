@@ -837,21 +837,21 @@ func setupBotHandlers(bot *telebot.Bot) {
 		}
 
 		var text strings.Builder
-		text.WriteString(fmt.Sprintf("📋 *All Users:*\n\n👤 *Total Users:* %d\n🔔 *Active Subscriptions:* %d\n\n",
-			len(filteredUsers.AllUsers), len(activeSubscriptions)))
+		c.Send(fmt.Sprintf("📋 *All Users:*\n\n👤 *Total Users:* %d\n🔔 *Active Subscriptions:* %d\n\n",
+			len(filteredUsers.AllUsers), len(activeSubscriptions)), telebot.ModeMarkdown)
 
 		for _, user := range filteredUsers.AllUsers {
 			chat, _ := bot.ChatByID(user.ID)
 			entry := fmt.Sprintf("🔹 %d: %s (Notify: %s)\n", user.ID, chat.Username, boolToEmoji(user.Notify))
+			text.WriteString(entry)
 			if text.Len()+len(entry) > 4000 { // Telegram message limit is 4096 bytes
-				c.Send(text.String(), telebot.ModeMarkdown)
+				c.Send(text.String())
 				text.Reset()
 			}
-			text.WriteString(entry)
 		}
 
 		if text.Len() > 0 {
-			return c.Send(text.String(), telebot.ModeMarkdown)
+			return c.Send(text.String())
 		}
 		return nil
 	})
