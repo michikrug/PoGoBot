@@ -571,17 +571,17 @@ func setupBotHandlers(bot *telebot.Bot) {
 	bot.Handle("/list", func(c telebot.Context) error {
 		user := getUserPreferences(c.Sender().ID)
 
-		var subs []Subscription
-		dbConfig.Where("user_id = ?", user.ID).Order("pokemon_id").Find(&subs)
-
 		var text strings.Builder
 		text.WriteString("📋 *Your Pokémon Alerts:*\n\n")
 		if user.HundoIV {
-			text.WriteString(fmt.Sprintf("🔹 *All* (Min IV: 100%, Min Level: 0, Max Distance: %dm)\n", user.Distance))
+			text.WriteString(fmt.Sprintf("🔹 *All* (Min IV: 100%%, Min Level: 0, Max Distance: %dm)\n", user.Distance))
 		}
 		if user.ZeroIV {
-			text.WriteString(fmt.Sprintf("🔹 *All* (Max IV: 0%, Min Level: 0, Max Distance: %dm)\n", user.Distance))
+			text.WriteString(fmt.Sprintf("🔹 *All* (Max IV: 0%%, Min Level: 0, Max Distance: %dm)\n", user.Distance))
 		}
+
+		var subs []Subscription
+		dbConfig.Where("user_id = ?", user.ID).Order("pokemon_id").Find(&subs)
 
 		if len(subs) == 0 {
 			text.WriteString("🔹 You have no specific Pokémon alerts")
