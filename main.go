@@ -22,18 +22,18 @@ import (
 // Models
 type User struct {
 	ID        int64   `gorm:"primaryKey"`
-	Notify    bool    `gorm:"default:true"`
-	Language  string  `gorm:"default:'de'"`
-	Stickers  bool    `gorm:"default:true"`
-	OnlyMap   bool    `gorm:"default:false"`
-	Cleanup   bool    `gorm:"default:true"`
-	Latitude  float32 `gorm:"default:0"`
-	Longitude float32 `gorm:"default:0"`
-	Distance  int     `gorm:"default:0"`
-	HundoIV   bool    `gorm:"default:false"`
-	ZeroIV    bool    `gorm:"default:false"`
-	MinIV     int     `gorm:"default:0"`
-	MinLevel  int     `gorm:"default:0"`
+	Notify    bool    `gorm:"not null,default:true"`
+	Language  string  `gorm:"not null,default:'de',type:varchar(5)"`
+	Stickers  bool    `gorm:"not null,default:true"`
+	OnlyMap   bool    `gorm:"not null,default:false"`
+	Cleanup   bool    `gorm:"not null,default:true"`
+	Latitude  float32 `gorm:"not null,default:0,type:double(18,14)"`
+	Longitude float32 `gorm:"not null,default:0,type:double(18,14)"`
+	Distance  int     `gorm:"not null,default:0"`
+	HundoIV   bool    `gorm:"not null,default:false"`
+	ZeroIV    bool    `gorm:"not null,default:false"`
+	MinIV     int     `gorm:"not null,default:0"`
+	MinLevel  int     `gorm:"not null,default:0"`
 }
 
 type FilteredUsers struct {
@@ -44,9 +44,9 @@ type FilteredUsers struct {
 
 type Subscription struct {
 	ID        int    `gorm:"primaryKey"`
-	UserID    int64  `gorm:"index"`
-	PokemonID int    `gorm:"index"`
-	Filters   string `gorm:"type:json"` // {"min_iv": 0.0, "min_level": 1, "max_distance": 100}
+	UserID    int64  `gorm:"not null,index"`
+	PokemonID int    `gorm:"not null,index,type=smallint(5)"`
+	Filters   string `gorm:"not null,default:\"{ \\\"min_iv\\\": 0, \\\"min_level\\\": 0, \\\"max_distance\\\": 0 }\",type:json"`
 }
 
 type FilteredSubscriptions struct {
@@ -55,10 +55,10 @@ type FilteredSubscriptions struct {
 }
 
 type Message struct {
-	ID         int `gorm:"primaryKey"`
-	MessageID  string
-	ChatID     int64
-	Expiration int `gorm:"index"`
+	ID         int   `gorm:"primaryKey"`
+	ChatID     int64 `gorm:"not null"`
+	MessageID  int   `gorm:"not null"`
+	Expiration int   `gorm:"not null,index,type:int(10)"`
 }
 
 type Pokemon struct {
@@ -119,6 +119,7 @@ var (
 		2: "\u2640", // Female
 		3: "\u26b2", // Genderless
 	}
+	customRegistry       = prometheus.NewRegistry()
 	notificationsCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "bot_notifications_total",
@@ -369,7 +370,7 @@ func sendSticker(bot *telebot.Bot, UserID int64, URL string, Expiration int) {
 		log.Printf("❌ Failed to send sticker: %v", err)
 	} else {
 		// Store message ID for cleanup
-		dbConfig.Create(&Message{MessageID: strconv.Itoa(message.ID), ChatID: UserID, Expiration: Expiration})
+		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, Expiration: Expiration})
 	}
 }
 
@@ -379,7 +380,7 @@ func sendLocation(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Expi
 		log.Printf("❌ Failed to send location: %v", err)
 	} else {
 		// Store message ID for cleanup
-		dbConfig.Create(&Message{MessageID: strconv.Itoa(message.ID), ChatID: UserID, Expiration: Expiration})
+		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, Expiration: Expiration})
 	}
 }
 
@@ -389,7 +390,7 @@ func sendMessage(bot *telebot.Bot, UserID int64, Text string, Expiration int) {
 		log.Printf("❌ Failed to send message: %v", err)
 	} else {
 		// Store message ID for cleanup
-		dbConfig.Create(&Message{MessageID: strconv.Itoa(message.ID), ChatID: UserID, Expiration: Expiration})
+		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, Expiration: Expiration})
 	}
 }
 
@@ -966,7 +967,7 @@ func cleanupMessages(bot *telebot.Bot) {
 		for _, message := range messages {
 			user := filteredUsers.AllUsers[message.ChatID]
 			if user.Cleanup {
-				bot.Delete(&telebot.StoredMessage{MessageID: message.MessageID, ChatID: message.ChatID})
+				bot.Delete(&telebot.StoredMessage{MessageID: strconv.Itoa(message.MessageID), ChatID: message.ChatID})
 			}
 			dbConfig.Delete(&message)
 		}
@@ -985,13 +986,13 @@ func startBackgroundProcessing(bot *telebot.Bot) {
 }
 
 func init() {
-	prometheus.MustRegister(notificationsCounter)
-	prometheus.MustRegister(encounterGauge)
-	prometheus.MustRegister(cleanupGauge)
+	customRegistry.MustRegister(notificationsCounter)
+	customRegistry.MustRegister(encounterGauge)
+	customRegistry.MustRegister(cleanupGauge)
 }
 
 func startMetricsServer() {
-	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/metrics", promhttp.HandlerFor(customRegistry, promhttp.HandlerOpts{}))
 	go func() {
 		log.Println("🚀 Prometheus metrics available at /metrics")
 		log.Fatal(http.ListenAndServe(":9001", nil))
