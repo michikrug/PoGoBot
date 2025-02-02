@@ -116,10 +116,20 @@ var (
 	pokemonIDToName     map[string]map[string]string
 	moveIDToName        map[string]map[string]string
 	timezone            *time.Location // Local timezone
-	gender              = map[int]string{
+	genderMap           = map[int]string{
 		1: "\u2642", // Male
 		2: "\u2640", // Female
 		3: "\u26b2", // Genderless
+	}
+	weatherMap = map[int]string{
+		0: "",
+		1: "☀️",
+		2: "☔️",
+		3: "⛅",
+		4: "☁️",
+		5: "💨",
+		6: "⛄️",
+		7: "🌁",
 	}
 	customRegistry       = prometheus.NewRegistry()
 	notificationsCounter = prometheus.NewCounter(
@@ -452,9 +462,9 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	expireTime := time.Unix(int64(*encounter.ExpireTimestamp), 0).In(timezone)
 	timeLeft := time.Until(expireTime)
 
-	notificationTitle := fmt.Sprintf("*🔔 %s %s %.1f%% %d|%d|%d %d%s L%d*",
+	notificationTitle := fmt.Sprintf("*🔔 %s %s %.1f%% %d|%d|%d %d%s L%d* %s",
 		pokemonIDToName[user.Language][strconv.Itoa(encounter.PokemonID)],
-		gender[*encounter.Gender],
+		genderMap[*encounter.Gender],
 		*encounter.IV,
 		*encounter.AtkIV,
 		*encounter.DefIV,
@@ -467,6 +477,7 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 			return "WP"
 		}(),
 		*encounter.Level,
+		weatherMap[*encounter.Weather],
 	)
 
 	var notificationText strings.Builder
