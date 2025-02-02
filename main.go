@@ -21,19 +21,19 @@ import (
 
 // Models
 type User struct {
-	ID        int64   `gorm:"primaryKey"`
-	Notify    bool    `gorm:"not null,default:true"`
-	Language  string  `gorm:"not null,default:'de',type:varchar(5)"`
-	Stickers  bool    `gorm:"not null,default:true"`
-	OnlyMap   bool    `gorm:"not null,default:false"`
-	Cleanup   bool    `gorm:"not null,default:true"`
-	Latitude  float32 `gorm:"not null,default:0,type:double(14,10)"`
-	Longitude float32 `gorm:"not null,default:0,type:double(14,10)"`
-	Distance  int     `gorm:"not null,default:0,type:mediumint(6)"`
-	HundoIV   bool    `gorm:"not null,default:false"`
-	ZeroIV    bool    `gorm:"not null,default:false"`
-	MinIV     int     `gorm:"not null,default:0,type:tinyint(3)"`
-	MinLevel  int     `gorm:"not null,default:0,type:tinyint(2)"`
+	ID          int64   `gorm:"primaryKey;autoIncrement:false"`
+	Notify      bool    `gorm:"not null;default:true"`
+	Language    string  `gorm:"not null;default:'de';type:varchar(5)"`
+	Stickers    bool    `gorm:"not null;default:true"`
+	OnlyMap     bool    `gorm:"not null;default:false"`
+	Cleanup     bool    `gorm:"not null;default:true"`
+	Latitude    float32 `gorm:"not null;default:0;type:double(14;10)"`
+	Longitude   float32 `gorm:"not null;default:0;type:double(14;10)"`
+	MaxDistance int     `gorm:"not null;default:0;type:mediumint(6)"`
+	HundoIV     bool    `gorm:"not null;default:false"`
+	ZeroIV      bool    `gorm:"not null;default:false"`
+	MinIV       int     `gorm:"not null;default:0;type:tinyint(3)"`
+	MinLevel    int     `gorm:"not null;default:0;type:tinyint(2)"`
 }
 
 type FilteredUsers struct {
@@ -43,22 +43,22 @@ type FilteredUsers struct {
 }
 
 type Subscription struct {
-	ID        int    `gorm:"primaryKey"`
-	UserID    int64  `gorm:"not null,index"`
-	PokemonID int    `gorm:"not null,index,type=smallint(5)"`
-	Filters   string `gorm:"not null,default:\"{ \\\"min_iv\\\": 0, \\\"min_level\\\": 0, \\\"max_distance\\\": 0 }\",type:json"`
+	UserID      int64 `gorm:"primaryKey;autoIncrement:false"`
+	PokemonID   int   `gorm:"primaryKey;autoIncrement:false;type=smallint(5)"`
+	MinIV       int   `gorm:"not null;default:0;type:tinyint(3)"`
+	MinLevel    int   `gorm:"not null;default:0;type:tinyint(2)"`
+	MaxDistance int   `gorm:"not null;default:0;type:mediumint(6)"`
 }
 
 type Encounter struct {
-	ID         string `gorm:"primaryKey,type:varchar(25)"`
-	Expiration int    `gorm:"not null,index,type:int(10)"`
+	ID         string `gorm:"primaryKey;autoIncrement:false;type:varchar(25)"`
+	Expiration int    `gorm:"index;not null;type:int(10)"`
 }
 
 type Message struct {
-	ID          int    `gorm:"primaryKey"`
-	EncounterID string `gorm:"not null,index,type:varchar(25)"`
-	ChatID      int64  `gorm:"not null"`
-	MessageID   int    `gorm:"not null"`
+	ChatID      int64  `gorm:"primaryKey;autoIncrement:false"`
+	MessageID   int    `gorm:"primaryKey;autoIncrement:false"`
+	EncounterID string `gorm:"index;not null;type:varchar(25)"`
 }
 
 type Pokemon struct {
@@ -322,19 +322,8 @@ func updateUserPreference(userID int64, field string, value interface{}) {
 
 // Subscribe User
 func addSubscription(userID int64, pokemonID int, minIV int, minLevel int, maxDistance int) {
-	// Encode filters as JSON
-	filters := fmt.Sprintf(`{"min_iv": %d, "min_level": %d, "max_distance": %d}`, minIV, minLevel, maxDistance)
-
-	newSub := Subscription{UserID: userID, PokemonID: pokemonID, Filters: filters}
-	var existingSub Subscription
-	if err := dbConfig.Where("user_id = ? AND pokemon_id = ?", userID, pokemonID).First(&existingSub).Error; err != nil {
-		// If subscription does not exist, create a new one
-		dbConfig.Create(&newSub)
-	} else {
-		// If subscription exists, update the filters
-		existingSub.Filters = filters
-		dbConfig.Save(&existingSub)
-	}
+	subscription := Subscription{UserID: userID, PokemonID: pokemonID, MinIV: minIV, MinLevel: minLevel, MaxDistance: maxDistance}
+	dbConfig.Save(&subscription)
 	getActiveSubscriptions()
 }
 
@@ -515,7 +504,7 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 			"🚫 *0%% IV Notifications:* %s\n"+
 			"🗑️ *Cleanup Expired Notifications:* %s\n\n"+
 			"Use the buttons below to update your settings",
-		user.Language, user.Latitude, user.Longitude, user.Distance, user.MinIV, user.MinLevel,
+		user.Language, user.Latitude, user.Longitude, user.MaxDistance, user.MinIV, user.MinLevel,
 		boolToEmoji(user.Notify), boolToEmoji(user.Stickers), boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV), boolToEmoji(user.Cleanup),
 	)
 
@@ -593,10 +582,10 @@ func setupBotHandlers(bot *telebot.Bot) {
 		var text strings.Builder
 		text.WriteString("📋 *Your Pokémon Alerts:*\n\n")
 		if user.HundoIV {
-			text.WriteString(fmt.Sprintf("🔹 *All* (Min IV: 100%%, Min Level: 0, Max Distance: %dm)\n", user.Distance))
+			text.WriteString(fmt.Sprintf("🔹 *All* (Min IV: 100%%, Min Level: 0, Max Distance: %dm)\n", user.MaxDistance))
 		}
 		if user.ZeroIV {
-			text.WriteString(fmt.Sprintf("🔹 *All* (Max IV: 0%%, Min Level: 0, Max Distance: %dm)\n", user.Distance))
+			text.WriteString(fmt.Sprintf("🔹 *All* (Max IV: 0%%, Min Level: 0, Max Distance: %dm)\n", user.MaxDistance))
 		}
 
 		var subs []Subscription
@@ -607,11 +596,9 @@ func setupBotHandlers(bot *telebot.Bot) {
 		}
 
 		for _, sub := range subs {
-			var filters map[string]int
-			json.Unmarshal([]byte(sub.Filters), &filters)
 			text.WriteString(fmt.Sprintf("🔹 %s (Min IV: %d%%, Min Level: %d, Max Distance: %dm)\n",
 				pokemonIDToName[user.Language][strconv.Itoa(sub.PokemonID)],
-				filters["min_iv"], filters["min_level"], filters["max_distance"],
+				sub.MinIV, sub.MinLevel, sub.MaxDistance,
 			))
 		}
 		return c.Send(text.String(), telebot.ModeMarkdown)
@@ -921,9 +908,9 @@ func processEncounters(bot *telebot.Bot) {
 			// Check for 100% IV Pokémon
 			if encounter.IV != nil && *encounter.IV == 100 {
 				for _, user := range filteredUsers.HundoIVUsers {
-					if user.Latitude != 0 && user.Longitude != 0 && user.Distance > 0 {
+					if user.Latitude != 0 && user.Longitude != 0 && user.MaxDistance > 0 {
 						distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-						if distance > float64(user.Distance) {
+						if distance > float64(user.MaxDistance) {
 							continue
 						}
 					}
@@ -933,9 +920,9 @@ func processEncounters(bot *telebot.Bot) {
 			// Check for 0% IV Pokémon
 			if encounter.IV != nil && *encounter.IV == 0 {
 				for _, user := range filteredUsers.ZeroIVUsers {
-					if user.Latitude != 0 && user.Longitude != 0 && user.Distance > 0 {
+					if user.Latitude != 0 && user.Longitude != 0 && user.MaxDistance > 0 {
 						distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-						if distance > float64(user.Distance) {
+						if distance > float64(user.MaxDistance) {
 							continue
 						}
 					}
@@ -945,25 +932,23 @@ func processEncounters(bot *telebot.Bot) {
 			// Check for subscribed Pokémon
 			if subs, exists := activeSubscriptions[encounter.PokemonID]; exists {
 				for _, sub := range subs {
-					var filters map[string]int
-					json.Unmarshal([]byte(sub.Filters), &filters)
 					user := filteredUsers.AllUsers[sub.UserID]
 
-					if filters["min_iv"] > 0 && *encounter.IV < float32(filters["min_iv"]) {
+					if sub.MinIV > 0 && *encounter.IV < float32(sub.MinIV) {
 						continue
 					}
 					if user.MinIV > 0 && *encounter.IV < float32(user.MinIV) {
 						continue
 					}
-					if filters["min_level"] > 0 && *encounter.Level < filters["min_level"] {
+					if sub.MinLevel > 0 && *encounter.Level < sub.MinLevel {
 						continue
 					}
 					if user.MinLevel > 0 && *encounter.Level < user.MinLevel {
 						continue
 					}
-					if user.Latitude != 0 && user.Longitude != 0 && (user.Distance > 0 || filters["max_distance"] > 0) {
+					if user.Latitude != 0 && user.Longitude != 0 && (user.MaxDistance > 0 || sub.MaxDistance > 0) {
 						distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-						if distance > float64(filters["max_distance"]) && distance > float64(user.Distance) {
+						if distance > float64(sub.MaxDistance) && distance > float64(user.MaxDistance) {
 							continue
 						}
 					}
