@@ -837,8 +837,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 		}
 
 		var text strings.Builder
-		c.Send(fmt.Sprintf("📋 *All Users:*\n\n👤 *Total Users:* %d\n🔔 *Active Subscriptions:* %d\n\n",
-			len(filteredUsers.AllUsers), len(activeSubscriptions)), telebot.ModeMarkdown)
+		c.Send(fmt.Sprintf("📋 *All Users:* %d\n\n", len(filteredUsers.AllUsers)), telebot.ModeMarkdown)
 
 		for _, user := range filteredUsers.AllUsers {
 			chat, _ := bot.ChatByID(user.ID)
@@ -943,7 +942,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			}
 
 			// Update max distance in the database
-			updateUserPreference(getUserID(c), "Distance", maxDistance)
+			updateUserPreference(getUserID(c), "MaxDistance", maxDistance)
 
 			userStates[userID] = ""
 
@@ -985,13 +984,16 @@ func setupBotHandlers(bot *telebot.Bot) {
 			if _, ok := botAdmins[userID]; !ok {
 				return c.Send("❌ You are not authorized to use this command")
 			}
+
 			message := c.Text()
 			for _, user := range filteredUsers.AllUsers {
 				if user.Notify {
 					bot.Send(&telebot.User{ID: user.ID}, message, telebot.ModeMarkdown)
 				}
 			}
+
 			userStates[userID] = ""
+
 			return c.Send("📢 Broadcast sent to all users")
 		}
 		if userStates[userID] == "impersonate_user" {
@@ -1002,9 +1004,13 @@ func setupBotHandlers(bot *telebot.Bot) {
 			if err != nil {
 				return c.Send("❌ Invalid user ID")
 			}
+
+			userStates[userID] = ""
+
 			botAdmins[userID] = int64(impersonatedUserID)
 			user := getUserPreferences(int64(impersonatedUserID))
 			settingsMessage, replyMarkup := buildSettings(user)
+
 			return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 		}
 		return nil
