@@ -27,13 +27,13 @@ type User struct {
 	Stickers  bool    `gorm:"not null,default:true"`
 	OnlyMap   bool    `gorm:"not null,default:false"`
 	Cleanup   bool    `gorm:"not null,default:true"`
-	Latitude  float32 `gorm:"not null,default:0,type:double(18,14)"`
-	Longitude float32 `gorm:"not null,default:0,type:double(18,14)"`
-	Distance  int     `gorm:"not null,default:0"`
+	Latitude  float32 `gorm:"not null,default:0,type:double(14,10)"`
+	Longitude float32 `gorm:"not null,default:0,type:double(14,10)"`
+	Distance  int     `gorm:"not null,default:0,type:mediumint(6)"`
 	HundoIV   bool    `gorm:"not null,default:false"`
 	ZeroIV    bool    `gorm:"not null,default:false"`
-	MinIV     int     `gorm:"not null,default:0"`
-	MinLevel  int     `gorm:"not null,default:0"`
+	MinIV     int     `gorm:"not null,default:0,type:tinyint(3)"`
+	MinLevel  int     `gorm:"not null,default:0,type:tinyint(2)"`
 }
 
 type FilteredUsers struct {
@@ -105,7 +105,7 @@ type Pokemon struct {
 
 var (
 	dbConfig              *gorm.DB // Stores user subscriptions
-	dbEncounters          *gorm.DB // Fetches Pokémon encounters
+	dbScanner             *gorm.DB // Fetches Pokémon encounters
 	userStates            map[int64]string
 	filteredUsers         FilteredUsers
 	filteredSubscriptions FilteredSubscriptions
@@ -182,10 +182,10 @@ func initDB() {
 	configDBName := os.Getenv("BOT_DB_NAME")
 	configDBHost := os.Getenv("BOT_DB_HOST")
 
-	encounterDBUser := os.Getenv("ENCOUNTER_DB_USER")
-	encounterDBPass := os.Getenv("ENCOUNTER_DB_PASS")
-	encounterDBName := os.Getenv("ENCOUNTER_DB_NAME")
-	encounterDBHost := os.Getenv("ENCOUNTER_DB_HOST")
+	scannerDBUser := os.Getenv("SCANNER_DB_USER")
+	scannerDBPass := os.Getenv("SCANNER_DB_PASS")
+	scannerDBName := os.Getenv("SCANNER_DB_NAME")
+	scannerDBHost := os.Getenv("SCANNER_DB_HOST")
 
 	// Bot-specific database (for user subscriptions)
 	configDSN := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", configDBUser, configDBPass, configDBHost, configDBName)
@@ -199,8 +199,8 @@ func initDB() {
 	dbConfig.AutoMigrate(&User{}, &Subscription{}, &Message{})
 
 	// Existing Pokémon encounter database
-	encounterDSN := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", encounterDBUser, encounterDBPass, encounterDBHost, encounterDBName)
-	dbEncounters, err = gorm.Open(mysql.Open(encounterDSN), &gorm.Config{})
+	scannerDSN := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", scannerDBUser, scannerDBPass, scannerDBHost, scannerDBName)
+	dbScanner, err = gorm.Open(mysql.Open(scannerDSN), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to encounter database: %v", err)
 	}
@@ -892,7 +892,7 @@ func processEncounters(bot *telebot.Bot) {
 	var lastCheck = time.Now().Unix() - 30
 	// Fetch current Pokémon encounters
 	var encounters []Pokemon
-	if err := dbEncounters.Where("iv IS NOT NULL").Where("updated > ?", lastCheck).Where("expire_timestamp > ?", lastCheck).Find(&encounters).Error; err != nil {
+	if err := dbScanner.Where("iv IS NOT NULL").Where("updated > ?", lastCheck).Where("expire_timestamp > ?", lastCheck).Find(&encounters).Error; err != nil {
 		log.Printf("❌ Failed to fetch Pokémon encounters: %v", err)
 	} else {
 		encounterGauge.Set(float64(len(encounters)))
