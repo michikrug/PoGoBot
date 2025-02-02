@@ -428,8 +428,9 @@ func sendMessage(bot *telebot.Bot, UserID int64, Text string, EncounterID string
 
 func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	// Check if encounter has already been notified
-	var message Message
-	if err := dbConfig.Where("encounter_id = ? AND chat_id = ?", encounter.ID, user.ID).Find(&message).Error; err == nil {
+	var sentMessages []Message
+	if dbConfig.Where("encounter_id = ? AND chat_id = ?", encounter.ID, user.ID).Find(&sentMessages); len(sentMessages) > 0 {
+		log.Printf("🔕 Skipping notification for Pokémon #%s to %s (already sent)", encounter.PokemonID, user.ID)
 		return
 	}
 	log.Printf("🔔 Sending notification for Pokémon #%s to %s", encounter.PokemonID, user.ID)
