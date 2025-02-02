@@ -540,19 +540,19 @@ func setupBotHandlers(bot *telebot.Bot) {
 		maxDistance := int(0)
 		if len(args) > 1 {
 			minIV, err = strconv.Atoi(args[1])
-			if err != nil {
+			if err != nil || minIV < 0 || minIV > 100 {
 				return c.Send("❌ Invalid IV input! Please enter a valid IV percentage (0-100).")
 			}
 		}
 		if len(args) > 2 {
 			minLevel, err = strconv.Atoi(args[2])
-			if err != nil {
+			if err != nil || minLevel < 0 || minLevel > 40 {
 				return c.Send("❌ Invalid level input! Please enter a valid level (0-40).")
 			}
 		}
 		if len(args) > 3 {
 			maxDistance, err = strconv.Atoi(args[3])
-			if err != nil {
+			if err != nil || maxDistance < 0 {
 				return c.Send("❌ Invalid distance input! Please enter a valid distance in m.")
 			}
 		}
@@ -821,7 +821,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &maxDistance)
-			if err != nil || maxDistance <= 0 {
+			if err != nil || maxDistance < 0 {
 				return c.Send("❌ Invalid input! Please enter a valid distance in m.")
 			}
 
@@ -840,7 +840,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 			// Parse user input
 			_, err := fmt.Sscanf(c.Text(), "%d", &maxDistance)
-			if err != nil || maxDistance <= 0 {
+			if err != nil || maxDistance < 0 {
 				return c.Send("❌ Invalid input! Please enter a valid distance in m.")
 			}
 
