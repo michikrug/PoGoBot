@@ -389,6 +389,16 @@ func sendLocation(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Enco
 	}
 }
 
+func sendVenue(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Title string, Address string, EncounterID string) {
+	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Venue{Location: telebot.Location{Lat: Lat, Lng: Lon}, Title: Title, Address: Address})
+	if err != nil {
+		log.Printf("❌ Failed to send venue: %v", err)
+	} else {
+		// Store message ID for cleanup
+		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
+	}
+}
+
 func sendMessage(bot *telebot.Bot, UserID int64, Text string, EncounterID string) {
 	message, err := bot.Send(&telebot.User{ID: UserID}, Text, telebot.ModeMarkdown)
 	if err != nil {
@@ -405,31 +415,32 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	if err := dbConfig.Where("encounter_id = ? AND chat_id = ?", encounter.ID, user.ID).First(&message).Error; err == nil {
 		return
 	}
+	dbConfig.Save(&Encounter{ID: encounter.ID, Expiration: *encounter.ExpireTimestamp})
+	notificationsCounter.Inc()
 
-	genderSymbol := gender[*encounter.Gender]
-
-	var url = fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d.webp", encounter.PokemonID)
-
-	if user.Stickers {
+	if !user.OnlyMap && user.Stickers {
+		url := fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d.webp", encounter.PokemonID)
 		sendSticker(bot, user.ID, url, encounter.ID)
 	}
-	sendLocation(bot, user.ID, encounter.Lat, encounter.Lon, encounter.ID)
+	if !user.OnlyMap {
+		sendLocation(bot, user.ID, encounter.Lat, encounter.Lon, encounter.ID)
+	}
 
 	expireTime := time.Unix(int64(*encounter.ExpireTimestamp), 0).In(timezone)
 	timeLeft := time.Until(expireTime)
 
-	var notificationText strings.Builder
-	notificationText.WriteString(fmt.Sprintf("*🔔 %s %s %.1f%% %d|%d|%d %dCP L%d*\n",
+	notificationTitle := fmt.Sprintf("*🔔 %s %s %.1f%% %d|%d|%d %dCP L%d*",
 		pokemonIDToName[user.Language][strconv.Itoa(encounter.PokemonID)],
-		genderSymbol,
+		gender[*encounter.Gender],
 		*encounter.IV,
 		*encounter.AtkIV,
 		*encounter.DefIV,
 		*encounter.StaIV,
 		*encounter.CP,
 		*encounter.Level,
-	))
+	)
 
+	var notificationText strings.Builder
 	if user.Latitude != 0 && user.Longitude != 0 {
 		distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
 		if distance < 1000 {
@@ -447,9 +458,11 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 		moveIDToName[user.Language][strconv.Itoa(*encounter.Move1)],
 		moveIDToName[user.Language][strconv.Itoa(*encounter.Move2)]))
 
-	sendMessage(bot, user.ID, notificationText.String(), encounter.ID)
-	dbConfig.Save(&Encounter{ID: encounter.ID, Expiration: *encounter.ExpireTimestamp})
-	notificationsCounter.Inc()
+	if !user.OnlyMap {
+		sendMessage(bot, user.ID, notificationTitle+"\n"+notificationText.String(), encounter.ID)
+	} else {
+		sendVenue(bot, user.ID, encounter.Lat, encounter.Lon, notificationTitle, notificationText.String(), encounter.ID)
+	}
 }
 
 func buildSettings(user User) (string, *telebot.ReplyMarkup) {
