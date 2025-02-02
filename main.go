@@ -111,6 +111,7 @@ var (
 	userStates          map[int64]string
 	filteredUsers       FilteredUsers
 	activeSubscriptions map[int][]Subscription
+	sentNotifications   map[string]map[int64]struct{}
 	pokemonNameToID     map[string]int
 	pokemonIDToName     map[string]map[string]string
 	moveIDToName        map[string]map[string]string
@@ -428,13 +429,13 @@ func sendMessage(bot *telebot.Bot, UserID int64, Text string, EncounterID string
 
 func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	// Check if encounter has already been notified
-	var sentMessages []Message
-	if dbConfig.Where("encounter_id = ? AND chat_id = ?", encounter.ID, user.ID).Find(&sentMessages); len(sentMessages) > 0 {
-		log.Printf("🔕 Skipping notification for Pokémon #%s to %s (already sent)", encounter.PokemonID, user.ID)
+	if _, exists := sentNotifications[encounter.ID][user.ID]; exists {
+		log.Printf("🔕 Skipping notification for Pokémon #%d to %d (already sent)", encounter.PokemonID, user.ID)
 		return
 	}
-	log.Printf("🔔 Sending notification for Pokémon #%s to %s", encounter.PokemonID, user.ID)
+	log.Printf("🔔 Sending notification for Pokémon #%d to %d", encounter.PokemonID, user.ID)
 	dbConfig.Save(&Encounter{ID: encounter.ID, Expiration: *encounter.ExpireTimestamp})
+	sentNotifications[encounter.ID][user.ID] = struct{}{}
 	notificationsCounter.Inc()
 
 	if !user.OnlyMap && user.Stickers {
@@ -448,7 +449,7 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	expireTime := time.Unix(int64(*encounter.ExpireTimestamp), 0).In(timezone)
 	timeLeft := time.Until(expireTime)
 
-	notificationTitle := fmt.Sprintf("*🔔 %s %s %.1f%% %d|%d|%d %dCP L%d*",
+	notificationTitle := fmt.Sprintf("*🔔 %s %s %.1f%% %d|%d|%d %d%s L%d*",
 		pokemonIDToName[user.Language][strconv.Itoa(encounter.PokemonID)],
 		gender[*encounter.Gender],
 		*encounter.IV,
@@ -456,6 +457,12 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 		*encounter.DefIV,
 		*encounter.StaIV,
 		*encounter.CP,
+		func() string {
+			if user.Language == "en" {
+				return "CP"
+			}
+			return "WP"
+		}(),
 		*encounter.Level,
 	)
 
@@ -1134,6 +1141,7 @@ func cleanupMessages(bot *telebot.Bot) {
 			dbConfig.Delete(&message)
 		}
 		dbConfig.Delete(&encounter)
+		sentNotifications[encounter.ID] = nil
 	}
 
 	cleanupGauge.Set(float64(deletedMessagesCount))
@@ -1194,6 +1202,7 @@ func main() {
 	startMetricsServer()
 
 	userStates = make(map[int64]string)
+	sentNotifications = make(map[string]map[int64]struct{})
 
 	// Load Pokémon mappings
 	loadAllLanguages()
