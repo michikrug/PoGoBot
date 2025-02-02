@@ -106,6 +106,7 @@ type Pokemon struct {
 var (
 	dbConfig            *gorm.DB // Stores user subscriptions
 	dbScanner           *gorm.DB // Fetches Pokémon encounters
+	botAdmins           map[int64]int64
 	userStates          map[int64]string
 	filteredUsers       FilteredUsers
 	activeSubscriptions map[int][]Subscription
@@ -521,24 +522,41 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 		boolToEmoji(user.Notify), boolToEmoji(user.Stickers), boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV), boolToEmoji(user.Cleanup),
 	)
 
-	return settingsMessage, &telebot.ReplyMarkup{
-		InlineKeyboard: [][]telebot.InlineButton{
-			{btnChangeLanguage},
-			{btnUpdateLocation},
-			{btnSetDistance},
-			{btnSetMinIV},
-			{btnSetMinLevel},
-			{btnAddSubscription},
-			{btnListSubscriptions},
-			{btnClearSubscriptions},
-			{btnToggleNotifications},
-			{btnToggleStickers},
-			{btnToogleHundoIV},
-			{btnToogleZeroIV},
-			{btnToggleCleanup},
-			{btnClose},
-		},
+	inlineKeyboard := [][]telebot.InlineButton{
+		{btnChangeLanguage},
+		{btnUpdateLocation},
+		{btnSetDistance},
+		{btnSetMinIV},
+		{btnSetMinLevel},
+		{btnAddSubscription},
+		{btnListSubscriptions},
+		{btnClearSubscriptions},
+		{btnToggleNotifications},
+		{btnToggleStickers},
+		{btnToogleHundoIV},
+		{btnToogleZeroIV},
+		{btnToggleCleanup},
+		{btnClose},
 	}
+
+	if _, ok := botAdmins[user.ID]; ok {
+		// Admin-only buttons
+		btnBroadcast := telebot.InlineButton{Text: "📢 Broadcast Message", Unique: "broadcast"}
+		btnListUsers := telebot.InlineButton{Text: "📋 List Users", Unique: "list_users"}
+		btnImpersonateUser := telebot.InlineButton{Text: "👤 Impersonate User", Unique: "impersonate_user"}
+		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnBroadcast, btnListUsers, btnImpersonateUser})
+	}
+
+	return settingsMessage, &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}
+}
+
+func getUserID(c telebot.Context) int64 {
+	userID := c.Sender().ID
+	if adminID, ok := botAdmins[userID]; ok && adminID != userID {
+		c.Send("🔒 You are impersonating another user")
+		return adminID
+	}
+	return userID
 }
 
 func setupBotHandlers(bot *telebot.Bot) {
@@ -578,7 +596,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			}
 		}
 
-		userID := c.Sender().ID
+		userID := getUserID(c)
 		addSubscription(userID, pokemonID, minIV, minLevel, maxDistance)
 
 		user := getUserPreferences(userID)
@@ -590,7 +608,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 	// /list
 	bot.Handle("/list", func(c telebot.Context) error {
-		user := getUserPreferences(c.Sender().ID)
+		user := getUserPreferences(getUserID(c))
 
 		var text strings.Builder
 		text.WriteString("📋 *Your Pokémon Alerts:*\n\n")
@@ -630,7 +648,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			return c.Send(fmt.Sprintf("Can't find Pokedex # for Pokémon: %s", pokemonName))
 		}
 
-		userID := c.Sender().ID
+		userID := getUserID(c)
 		dbConfig.Where("user_id = ? AND pokemon_id = ?", userID, pokemonID).Delete(&Subscription{})
 
 		getActiveSubscriptions()
@@ -641,7 +659,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
-		userID := c.Sender().ID
+		userID := getUserID(c)
 		location := c.Message().Location
 
 		updateUserPreference(userID, "Latitude", location.Lat)
@@ -651,7 +669,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle("/start", func(c telebot.Context) error {
-		user := getUserPreferences(c.Sender().ID)
+		user := getUserPreferences(getUserID(c))
 
 		lang := c.Sender().LanguageCode // Auto-detect Telegram locale
 		if lang != "en" && lang != "de" {
@@ -673,7 +691,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle("/settings", func(c telebot.Context) error {
-		user := getUserPreferences(c.Sender().ID)
+		user := getUserPreferences(getUserID(c))
 		settingsMessage, replyMarkup := buildSettings(user)
 		return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
@@ -693,14 +711,14 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "clear_subscriptions"}, func(c telebot.Context) error {
-		userID := c.Sender().ID
+		userID := getUserID(c)
 		dbConfig.Where("user_id = ?", userID).Delete(&Subscription{})
 		getActiveSubscriptions()
 		return c.Edit("🗑️ All Pokémon alerts cleared")
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_notifications"}, func(c telebot.Context) error {
-		user := getUserPreferences(c.Sender().ID)
+		user := getUserPreferences(getUserID(c))
 		user.Notify = !user.Notify
 		updateUserPreference(user.ID, "Notify", user.Notify)
 		settingsMessage, replyMarkup := buildSettings(user)
@@ -708,7 +726,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_stickers"}, func(c telebot.Context) error {
-		user := getUserPreferences(c.Sender().ID)
+		user := getUserPreferences(getUserID(c))
 		user.Stickers = !user.Stickers
 		updateUserPreference(user.ID, "Stickers", user.Stickers)
 		settingsMessage, replyMarkup := buildSettings(user)
@@ -716,7 +734,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_hundo_iv"}, func(c telebot.Context) error {
-		user := getUserPreferences(c.Sender().ID)
+		user := getUserPreferences(getUserID(c))
 		user.HundoIV = !user.HundoIV
 		updateUserPreference(user.ID, "HundoIV", user.HundoIV)
 		settingsMessage, replyMarkup := buildSettings(user)
@@ -724,7 +742,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_zero_iv"}, func(c telebot.Context) error {
-		user := getUserPreferences(c.Sender().ID)
+		user := getUserPreferences(getUserID(c))
 		user.ZeroIV = !user.ZeroIV
 		updateUserPreference(user.ID, "ZeroIV", user.ZeroIV)
 		settingsMessage, replyMarkup := buildSettings(user)
@@ -732,7 +750,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_cleanup"}, func(c telebot.Context) error {
-		user := getUserPreferences(c.Sender().ID)
+		user := getUserPreferences(getUserID(c))
 		user.Cleanup = !user.Cleanup
 		updateUserPreference(user.ID, "Cleanup", user.Cleanup)
 		settingsMessage, replyMarkup := buildSettings(user)
@@ -750,12 +768,12 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 	// Handle setting language
 	bot.Handle(&telebot.InlineButton{Unique: "set_lang_en"}, func(c telebot.Context) error {
-		updateUserPreference(c.Sender().ID, "Language", "en")
+		updateUserPreference(getUserID(c), "Language", "en")
 		return c.Edit("✅ Language (Pokémon & Moves) set to *English*", telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "set_lang_de"}, func(c telebot.Context) error {
-		updateUserPreference(c.Sender().ID, "Language", "de")
+		updateUserPreference(getUserID(c), "Language", "de")
 		return c.Edit("✅ Language (Pokémon & Moves) set to *Deutsch*", telebot.ModeMarkdown)
 	})
 
@@ -775,8 +793,9 @@ func setupBotHandlers(bot *telebot.Bot) {
 	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
 		location := c.Message().Location
 		// Update user location in the database
-		updateUserPreference(c.Sender().ID, "Latitude", location.Lat)
-		updateUserPreference(c.Sender().ID, "Longitude", location.Lng)
+		userID := getUserID(c)
+		updateUserPreference(userID, "Latitude", location.Lat)
+		updateUserPreference(userID, "Longitude", location.Lng)
 		return c.Edit("✅ Location updated")
 	})
 
@@ -793,6 +812,38 @@ func setupBotHandlers(bot *telebot.Bot) {
 	bot.Handle(&telebot.InlineButton{Unique: "set_min_level"}, func(c telebot.Context) error {
 		userStates[c.Sender().ID] = "set_min_level"
 		return c.Edit("🔢 Enter the minimum Pokémon level (1-40):")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "broadcast"}, func(c telebot.Context) error {
+		if _, ok := botAdmins[c.Sender().ID]; !ok {
+			return c.Edit("❌ You are not authorized to use this command")
+		}
+		userStates[c.Sender().ID] = "broadcast"
+		return c.Edit("📢 Enter the message you want to broadcast:")
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "list_users"}, func(c telebot.Context) error {
+		if _, ok := botAdmins[c.Sender().ID]; !ok {
+			return c.Edit("❌ You are not authorized to use this command")
+		}
+		var text strings.Builder
+		text.WriteString("📋 *All Users:*\n\n" +
+			fmt.Sprintf("👤 *Total Users:* %d\n", len(filteredUsers.AllUsers)) +
+			fmt.Sprintf("🔔 *Active Subscriptions:* %d\n", len(activeSubscriptions)))
+
+		for _, user := range filteredUsers.AllUsers {
+			chat, _ := bot.ChatByID(user.ID)
+			text.WriteString(fmt.Sprintf("🔹 %d: %s (Notify: %s)\n", user.ID, chat.Username, boolToEmoji(user.Notify)))
+		}
+		return c.Edit(text.String(), telebot.ModeMarkdown)
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "impersonate_user"}, func(c telebot.Context) error {
+		if _, ok := botAdmins[c.Sender().ID]; !ok {
+			return c.Edit("❌ You are not authorized to use this command")
+		}
+		userStates[c.Sender().ID] = "impersonate_user"
+		return c.Edit("👤 Enter the user ID you want to impersonate:")
 	})
 
 	// Handle text input for max distance
@@ -845,7 +896,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			}
 
 			// Subscribe user to Pokémon
-			addSubscription(userID, pokemonID, minIV, minLevel, maxDistance)
+			addSubscription(getUserID(c), pokemonID, minIV, minLevel, maxDistance)
 
 			userStates[userID] = ""
 
@@ -864,7 +915,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			}
 
 			// Update max distance in the database
-			updateUserPreference(userID, "Distance", maxDistance)
+			updateUserPreference(getUserID(c), "Distance", maxDistance)
 
 			userStates[userID] = ""
 
@@ -880,7 +931,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			}
 
 			// Update min IV in the database
-			updateUserPreference(userID, "MinIV", minIV)
+			updateUserPreference(getUserID(c), "MinIV", minIV)
 
 			userStates[userID] = ""
 
@@ -896,11 +947,37 @@ func setupBotHandlers(bot *telebot.Bot) {
 			}
 
 			// Update min IV in the database
-			updateUserPreference(userID, "MinLevel", minLevel)
+			updateUserPreference(getUserID(c), "MinLevel", minLevel)
 
 			userStates[userID] = ""
 
 			return c.Send(fmt.Sprintf("✅ Minimum Level updated to %d", minLevel))
+		}
+		if userStates[userID] == "broadcast" {
+			if _, ok := botAdmins[userID]; !ok {
+				return c.Send("❌ You are not authorized to use this command")
+			}
+			message := c.Text()
+			for _, user := range filteredUsers.AllUsers {
+				if user.Notify {
+					bot.Send(&telebot.User{ID: user.ID}, message, telebot.ModeMarkdown)
+				}
+			}
+			userStates[userID] = ""
+			return c.Send("📢 Broadcast sent to all users")
+		}
+		if userStates[userID] == "impersonate_user" {
+			if _, ok := botAdmins[userID]; !ok {
+				return c.Send("❌ You are not authorized to use this command")
+			}
+			impersonatedUserID, err := strconv.Atoi(c.Text())
+			if err != nil {
+				return c.Send("❌ Invalid user ID")
+			}
+			botAdmins[userID] = int64(impersonatedUserID)
+			user := getUserPreferences(int64(impersonatedUserID))
+			settingsMessage, replyMarkup := buildSettings(user)
+			return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 		}
 		return nil
 	})
@@ -1031,10 +1108,20 @@ func main() {
 	}
 	// Required environment variables
 	requiredVars := []string{
-		"BOT_TOKEN", "BOT_DB_USER", "BOT_DB_PASS", "BOT_DB_NAME", "BOT_DB_HOST",
+		"BOT_TOKEN", "BOT_ADMINS", "BOT_DB_USER", "BOT_DB_PASS", "BOT_DB_NAME", "BOT_DB_HOST",
 		"SCANNER_DB_USER", "SCANNER_DB_PASS", "SCANNER_DB_NAME", "SCANNER_DB_HOST",
 	}
 	checkEnvVars(requiredVars)
+
+	admins := strings.Split(os.Getenv("BOT_ADMINS"), ",")
+	botAdmins = make(map[int64]int64)
+	for _, admin := range admins {
+		id, err := strconv.ParseInt(admin, 10, 64)
+		if err != nil {
+			log.Fatalf("❌ Invalid admin ID: %v", err)
+		}
+		botAdmins[id] = id
+	}
 
 	// Start Prometheus metrics server
 	startMetricsServer()
