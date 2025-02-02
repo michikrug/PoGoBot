@@ -657,21 +657,29 @@ func setupBotHandlers(bot *telebot.Bot) {
 		if user.ZeroIV {
 			text.WriteString(fmt.Sprintf("🔹 *All* (Max IV: 0%%, Min Level: 0, Max Distance: %dm)\n", user.MaxDistance))
 		}
+		c.Send(text.String(, telebot.ModeMarkdown)
+		text.Reset()
 
 		var subs []Subscription
 		dbConfig.Where("user_id = ?", user.ID).Order("pokemon_id").Find(&subs)
 
 		if len(subs) == 0 {
-			text.WriteString("🔹 You have no specific Pokémon alerts")
+			return c.Send("🔹 You have no specific Pokémon alerts")
 		}
 
 		for _, sub := range subs {
-			text.WriteString(fmt.Sprintf("🔹 %s (Min IV: %d%%, Min Level: %d, Max Distance: %dm)\n",
-				pokemonIDToName[user.Language][strconv.Itoa(sub.PokemonID)],
-				sub.MinIV, sub.MinLevel, sub.MaxDistance,
-			))
+			entry :=
+				fmt.Sprintf("🔹 %s (Min IV: %d%%, Min Level: %d, Max Distance: %dm)\n",
+					pokemonIDToName[user.Language][strconv.Itoa(sub.PokemonID)],
+					sub.MinIV, sub.MinLevel, sub.MaxDistance,
+				)
+			if text.Len()+len(entry) > 4000 { // Telegram message limit is 4096 bytes
+				c.Send(text.String())
+				text.Reset()
+			}
+			text.WriteString(entry)
 		}
-		return c.Send(text.String(), telebot.ModeMarkdown)
+		return c.Send(text.String())
 	})
 
 	// /unsubscribe <pokemon_name>
@@ -881,17 +889,14 @@ func setupBotHandlers(bot *telebot.Bot) {
 		for _, user := range filteredUsers.AllUsers {
 			chat, _ := bot.ChatByID(user.ID)
 			entry := fmt.Sprintf("🔹 %d: %s (Notify: %s)\n", user.ID, chat.Username, boolToEmoji(user.Notify))
-			text.WriteString(entry)
 			if text.Len()+len(entry) > 4000 { // Telegram message limit is 4096 bytes
 				c.Send(text.String())
 				text.Reset()
 			}
+			text.WriteString(entry)
 		}
 
-		if text.Len() > 0 {
-			return c.Send(text.String())
-		}
-		return nil
+		return c.Send(text.String())
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "impersonate_user"}, func(c telebot.Context) error {
