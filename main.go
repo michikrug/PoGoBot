@@ -347,6 +347,7 @@ func getUsersByFilters() {
 		filteredUsers.AllUsers[user.ID] = user
 	}
 	usersGauge.Set(float64(len(filteredUsers.AllUsers)))
+	log.Printf("📋 Loaded %d users", len(filteredUsers.AllUsers))
 
 	for _, user := range filteredUsers.AllUsers {
 		if user.Notify {
@@ -372,6 +373,7 @@ func getActiveSubscriptions() {
 			activeSubscriptions[subscription.PokemonID] = append(activeSubscriptions[subscription.PokemonID], subscription)
 		}
 	}
+	log.Printf("📋 Loaded %d active of %d subscriptions", activeSubscriptionCount, len(subscriptions))
 	subscriptionGauge.Set(float64(len(subscriptions)))
 	activeSubscriptionGauge.Set(float64(activeSubscriptionCount))
 }
@@ -423,7 +425,7 @@ func sendMessage(bot *telebot.Bot, UserID int64, Text string, EncounterID string
 func sendEncounterNotification(bot *telebot.Bot, user User, encounter Pokemon) {
 	// Check if encounter has already been notified
 	var message Message
-	if err := dbConfig.Where("encounter_id = ? AND chat_id = ?", encounter.ID, user.ID).First(&message).Error; err == nil {
+	if err := dbConfig.Where("encounter_id = ? AND chat_id = ?", encounter.ID, user.ID).Find(&message).Error; err == nil {
 		return
 	}
 	log.Printf("🔔 Sending notification for Pokémon #%s to %s", encounter.PokemonID, user.ID)
@@ -1032,7 +1034,7 @@ func processEncounters(bot *telebot.Bot) {
 	var lastCheck = time.Now().Unix() - 30
 	// Fetch current Pokémon encounters
 	var encounters []Pokemon
-	if err := dbScanner.Where("iv IS NOT NULL").Where("updated > ?", lastCheck).Where("expire_timestamp > ?", lastCheck).Find(&encounters).Error; err != nil {
+	if err := dbScanner.Where("iv IS NOT NULL AND updated > ? AND expire_timestamp > ?", lastCheck, lastCheck).Find(&encounters).Error; err != nil {
 		log.Printf("❌ Failed to fetch Pokémon encounters: %v", err)
 	} else {
 		encounterGauge.Set(float64(len(encounters)))
