@@ -1119,6 +1119,9 @@ func init() {
 	customRegistry.MustRegister(notificationsCounter)
 	customRegistry.MustRegister(encounterGauge)
 	customRegistry.MustRegister(cleanupGauge)
+	customRegistry.MustRegister(usersGauge)
+	customRegistry.MustRegister(subscriptionGauge)
+	customRegistry.MustRegister(activeSubscriptionGauge)
 }
 
 func startMetricsServer() {
