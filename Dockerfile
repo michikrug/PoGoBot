@@ -17,7 +17,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o bot main.go
 FROM alpine:latest
 
 # Install CA certificates (needed for MySQL & HTTPS requests)
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
 
