@@ -135,7 +135,7 @@ var (
 	notificationsCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "bot_notifications_total",
-			Help: "Total number of notifications sent",
+			Help: "Total number of notifications triggered",
 		},
 	)
 	messagesCounter = prometheus.NewCounter(
@@ -144,16 +144,16 @@ var (
 			Help: "Total number of messages sent",
 		},
 	)
+	cleanupCounter = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "bot_cleanup_total",
+			Help: "Total number of expired messages cleaned up",
+		},
+	)
 	encounterGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "bot_encounters_count",
 			Help: "Total number of Pokémon encounters retrieved",
-		},
-	)
-	cleanupGauge = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "bot_cleanup_count",
-			Help: "Total number of expired notifications cleaned up",
 		},
 	)
 	usersGauge = prometheus.NewGauge(
@@ -1164,7 +1164,7 @@ func cleanupMessages(bot *telebot.Bot) {
 		sentNotifications[encounter.ID] = nil
 	}
 
-	cleanupGauge.Set(float64(deletedMessagesCount))
+	cleanupCounter.Add(float64(deletedMessagesCount))
 }
 
 func startBackgroundProcessing(bot *telebot.Bot) {
@@ -1182,7 +1182,7 @@ func init() {
 	customRegistry.MustRegister(notificationsCounter)
 	customRegistry.MustRegister(messagesCounter)
 	customRegistry.MustRegister(encounterGauge)
-	customRegistry.MustRegister(cleanupGauge)
+	customRegistry.MustRegister(cleanupCounter)
 	customRegistry.MustRegister(usersGauge)
 	customRegistry.MustRegister(subscriptionGauge)
 	customRegistry.MustRegister(activeSubscriptionGauge)
