@@ -348,14 +348,14 @@ func getPokemonID(name string) (int, error) {
 
 func getPokemonName(pokemonID int, language string) string {
 	if pokemon, exists := MasterFileData.Pokemon[strconv.Itoa(pokemonID)]; exists {
-		return getTranslation("Unknown", pokemon.Name)
+		return getTranslation(pokemon.Name, language)
 	}
 	return getTranslation("Unknown", language)
 }
 
 func getMoveName(moveID int, language string) string {
 	if move, exists := MasterFileData.Moves[strconv.Itoa(moveID)]; exists {
-		return getTranslation("Unknown", move.Name)
+		return getTranslation(move.Name, language)
 	}
 	return getTranslation("Unknown", language)
 }
