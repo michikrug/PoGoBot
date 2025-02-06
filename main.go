@@ -1220,13 +1220,13 @@ func filteredAndSendEncounters(bot *telebot.Bot, users FilteredUsers, encounters
 
 				// Validate encounter IV against required minimum IV
 				if effectiveMinIV > 0 && *encounter.IV < float32(effectiveMinIV) {
-					log.Printf("🔍 Skipping encounter: IV %.2f is below required %d%%", *encounter.IV, effectiveMinIV)
+					// log.Printf("🔍 Skipping encounter: IV %.2f is below required %d%%", *encounter.IV, effectiveMinIV)
 					continue
 				}
 
 				// Validate encounter level against required minimum level
 				if effectiveMinLevel > 0 && *encounter.Level < effectiveMinLevel {
-					log.Printf("🔍 Skipping encounter: Level %d is below required %d", *encounter.Level, effectiveMinLevel)
+					// log.Printf("🔍 Skipping encounter: Level %d is below required %d", *encounter.Level, effectiveMinLevel)
 					continue
 				}
 
@@ -1234,7 +1234,7 @@ func filteredAndSendEncounters(bot *telebot.Bot, users FilteredUsers, encounters
 				if user.Latitude != 0 && user.Longitude != 0 && effectiveMaxDistance > 0 {
 					distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
 					if distance > float64(effectiveMaxDistance) {
-						log.Printf("🔍 Skipping encounter: Distance %.0fm exceeds allowed %dm", distance, effectiveMaxDistance)
+						// log.Printf("🔍 Skipping encounter: Distance %.0fm exceeds allowed %dm", distance, effectiveMaxDistance)
 						continue
 					}
 				}
