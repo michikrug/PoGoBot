@@ -78,11 +78,11 @@ http://localhost:9001/metrics
 
 - `bot_notifications_total` – Total number of notifications sent.
 - `bot_messages_total` – Total number of messages sent.
+- `bot_cleanup_total` – Number of expired messages cleaned up.
 - `bot_encounters_count` – Number of Pokémon encounters retrieved.
 - `bot_users_count` – Number of users subscribed to notifications.
 - `bot_subscription_count` – Total number of subscriptions.
 - `bot_subscription_active_count` – Active Pokémon subscriptions.
-- `bot_cleanup_total` – Number of expired messages cleaned up.
 
 ## Contributing
 
