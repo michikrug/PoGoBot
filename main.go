@@ -361,6 +361,9 @@ func getMoveName(moveID int, language string) string {
 }
 
 func getTranslation(key string, language string) string {
+	if language == "en" {
+		return key
+	}
 	if translations, exists := TranslationData[language]; exists {
 		if translation, exists := translations[key]; exists {
 			return translation
@@ -807,7 +810,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 		userID := c.Sender().ID
 		language := users.All[userID].Language
 		if _, ok := botAdmins[userID]; !ok {
-			return c.Edit(getTranslation("❌ You are not authorized to use this command", language))
+			return c.Send(getTranslation("❌ You are not authorized to use this command", language))
 		}
 		if botAdmins[userID] == userID {
 			return c.Send(getTranslation("🔒 You are not impersonating another user", language), telebot.ModeMarkdown)
@@ -904,6 +907,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "update_location"}, func(c telebot.Context) error {
+		c.Delete()
 		userID := c.Sender().ID
 		language := users.All[userID].Language
 		// Prompt user to send location
@@ -911,7 +915,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 			Text:     getTranslation("📍 Send Location", language),
 			Location: true,
 		}
-		return c.Edit(getTranslation("📍 Please send your current location:", language), &telebot.ReplyMarkup{
+		return c.Send(getTranslation("📍 Please send your current location:", language), &telebot.ReplyMarkup{
 			ReplyKeyboard:  [][]telebot.ReplyButton{{btnShareLocation}},
 			ResizeKeyboard: true,
 		})
@@ -949,6 +953,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "list_users"}, func(c telebot.Context) error {
+		c.Delete()
 		userID := c.Sender().ID
 		language := users.All[userID].Language
 		if _, ok := botAdmins[userID]; !ok {
@@ -983,9 +988,18 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 	// Handle location input
 	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
-		location := c.Message().Location
 		userID := getUserID(c)
 		language := users.All[userID].Language
+		var msg *telebot.Message
+		if c.Message() != nil {
+			msg = c.Message()
+		} else if c.Callback() != nil {
+			msg = c.Callback().Message
+		}
+		if msg == nil || msg.Location == nil {
+			return c.Send(getTranslation("❌ Location data not found", language))
+		}
+		location := msg.Location
 		// Update user location in the database
 		updateUserPreference(userID, "Latitude", location.Lat)
 		updateUserPreference(userID, "Longitude", location.Lng)
