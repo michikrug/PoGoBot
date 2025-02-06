@@ -990,20 +990,11 @@ func setupBotHandlers(bot *telebot.Bot) {
 	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
 		userID := getUserID(c)
 		language := users.All[userID].Language
-		var msg *telebot.Message
-		if c.Message() != nil {
-			msg = c.Message()
-		} else if c.Callback() != nil {
-			msg = c.Callback().Message
-		}
-		if msg == nil || msg.Location == nil {
-			return c.Send(getTranslation("❌ Location data not found", language))
-		}
-		location := msg.Location
+		location := c.Message().Location
 		// Update user location in the database
 		updateUserPreference(userID, "Latitude", location.Lat)
 		updateUserPreference(userID, "Longitude", location.Lng)
-		return c.Edit(getTranslation("✅ Location updated", language))
+		return c.Send(getTranslation("✅ Location updated", language))
 	})
 
 	// Handle text input
