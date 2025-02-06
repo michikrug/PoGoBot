@@ -426,7 +426,7 @@ func getUsersByFilters() {
 }
 
 func getActiveSubscriptions() {
-	activeSubscriptions := make(map[int][]Subscription)
+	activeSubscriptions = make(map[int][]Subscription)
 	activeSubscriptionCount := 0
 	var subscriptions []Subscription
 	dbConfig.Find(&subscriptions)
