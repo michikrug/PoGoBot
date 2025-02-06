@@ -4758,7 +4758,7 @@
         "❌ Invalid input! Please enter a valid level (0-40)": "❌ Ungültige Eingabe! Bitte gib ein gültiges Level ein (0-40)",
         "❌ Invalid input! Please enter a valid distance (in m)": "❌ Ungültige Eingabe! Bitte gib eine gültige Entfernung (im m) ein",
         "ℹ️ Usage: /subscribe <pokemon-name> [min-iv] [min-level] [max-distance]": "ℹ️ Verwendung: /subscribe <pokemon-name> [min-iv] [min-level] [max-entfernung]",
-        "ℹ️ Usage: /unsubscribe <pokemon-name>": "ℹ️ Usage: /unsubscribe <pokemon-name>",
+        "ℹ️ Usage: /unsubscribe <pokemon-name>": "ℹ️ Verwendung: /unsubscribe <pokemon-name>",
         "❌ Can't find Pokedex # for Pokémon: %s": "❌ Pokedex # für Pokémon: %s nicht gefunden",
         "✅ Subscribed to %s alerts (Min IV: %d%%, Min Level: %d, Max Distance: %dm)": "✅ Benachrichtigungen für %s abonniert (Min IV: %d%%, Min Level: %d, Max Entfernung: %dm)",
         "✅ Unsubscribed from %s alerts": "✅ Benachrichtigungen für %s abbestellt",
@@ -4793,8 +4793,13 @@
         "📢 Enter the message you want to broadcast to all users:": "📢 Gib die Nachricht ein, die du an alle Benutzer senden willst:",
         "👋 Welcome to the PoGo Notification Bot!": "👋 Welcome to the PoGo Notification Bot!",
         "ℹ️ Language detected: *%s*": "ℹ️ Ermittelte Sprache: *%s*",
-        "ℹ️ Send me your 📍 *location* to enable distance-based notifications": "ℹ️ Sende mir deinen 📍 *Standort*, um entfernungsbasierte Benachrichtigungen zu aktivieren",
+        "ℹ️ Send me your 📍 location to enable distance-based notifications": "ℹ️ Sende mir deinen 📍 Standort, um entfernungsbasierte Benachrichtigungen zu aktivieren",
         "ℹ️ Use /settings to update your preferences": "ℹ️ Benutze /settings um deine Einstellungen anzupassen",
-        "ℹ️ Use /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] to get notified about specific Pokémon": "ℹ️ Verwende /subscribe <pokemon-name> [min-iv] [min-level] [max-entfernung] um über bestimmte Pokémon benachrichtigt zu werden"
+        "ℹ️ Use /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] to get notified about specific Pokémon": "ℹ️ Verwende /subscribe <pokemon-name> [min-iv] [min-level] [max-entfernung] um über bestimmte Pokémon benachrichtigt zu werden",
+        "🤖 PoGo Notification Bot Commands:": "🤖 PoGo Notification Bot Commands:",
+        "🔔 /settings - Update your preferences": "🔔 /settings - Einstellungen anpassen",
+        "📋 /list - List your Pokémon subscriptions": "📋 /list - Alle Pokémon-Abonnements auflisten",
+        "📣 /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] - Subscribe to Pokémon alerts": "📣 /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] - Pokémon-Benachrichtigungen abonnieren",
+        "🚫 /unsubscribe <pokemon-name> - Unsubscribe from Pokémon alerts": "🚫 /unsubscribe <pokemon-name> - Pokémon-Benachrichtigungen abbestellen"
     }
 }

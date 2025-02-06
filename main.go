@@ -329,8 +329,9 @@ func loadPokemonNameMappings() {
 	for _, pokemon := range MasterFileData.Pokemon {
 		pokemonNameToID[strings.ToLower(pokemon.Name)] = pokemon.PokedexId
 		for _, translations := range TranslationData {
-			translation := translations[pokemon.Name]
-			pokemonNameToID[strings.ToLower(translation)] = pokemon.PokedexId
+			if translation, exists := translations[pokemon.Name]; exists {
+				pokemonNameToID[strings.ToLower(translation)] = pokemon.PokedexId
+			}
 		}
 	}
 
@@ -780,15 +781,15 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 		// Welcome message
 		startMessage := fmt.Sprintf(
-			"👋 Welcome to the PoGo Notification Bot!"+"\n\n"+
-				"ℹ️ Language detected: *%s*"+"\n"+
-				"ℹ️ Send me your 📍 *location* to enable distance-based notifications"+"\n"+
-				"ℹ️ Use /settings to update your preferences"+"\n"+
-				"ℹ️ Use /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] to get notified about specific Pokémon",
+			getTranslation("👋 Welcome to the PoGo Notification Bot!", lang)+"\n\n"+
+				getTranslation("ℹ️ Language detected: *%s*", lang)+"\n"+
+				getTranslation("ℹ️ Use /settings to update your preferences", lang)+"\n"+
+				getTranslation("ℹ️ Use /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] to get notified about specific Pokémon", lang)+"\n"+
+				getTranslation("ℹ️ Send me your 📍 location to enable distance-based notifications", lang),
 			lang,
 		)
 
-		return c.Send(startMessage, telebot.ModeMarkdown)
+		return c.Send(startMessage)
 	})
 
 	bot.Handle("/settings", func(c telebot.Context) error {
@@ -798,11 +799,13 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 
 	bot.Handle("/help", func(c telebot.Context) error {
-		helpMessage := "🤖 *PoGo Notification Bot Commands:*\n\n" +
-			"🔔 /settings - Update your preferences\n" +
-			"📋 /list - List your Pokémon alerts\n" +
-			"📣 /subscribe <pokemon_name> [min-iv] [min-level] [max-distance] - Subscribe to Pokémon alerts\n" +
-			"🚫 /unsubscribe <pokemon_name> - Unsubscribe from Pokémon alerts"
+		userID := c.Sender().ID
+		language := users.All[userID].Language
+		helpMessage := getTranslation("🤖 PoGo Notification Bot Commands:", language) + "\n\n" +
+			getTranslation("🔔 /settings - Update your preferences", language) + "\n" +
+			getTranslation("📋 /list - List your Pokémon subscriptions", language) + "\n" +
+			getTranslation("📣 /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] - Subscribe to Pokémon alerts", language) + "\n" +
+			getTranslation("🚫 /unsubscribe <pokemon-name> - Unsubscribe from Pokémon alerts", language)
 		return c.Send(helpMessage, telebot.ModeMarkdown)
 	})
 
