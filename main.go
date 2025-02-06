@@ -366,8 +366,9 @@ func getTranslation(key string, language string) string {
 			return translation
 		}
 		log.Printf("❌ Translation key not found: %s", key)
+	} else {
+		log.Printf("❌ Translation language not found: %s", language)
 	}
-	log.Printf("❌ Translation language not found: %s", language)
 	return key
 }
 
