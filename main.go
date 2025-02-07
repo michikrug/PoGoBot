@@ -150,6 +150,7 @@ type Weather struct {
 var (
 	dbConfig            *gorm.DB // Stores user subscriptions
 	dbScanner           *gorm.DB // Fetches Pokémon encounters
+	bot                 *telebot.Bot
 	botAdmins           map[int64]int64
 	userStates          map[int64]string
 	users               FilteredUsers
@@ -442,7 +443,7 @@ func getActiveSubscriptions() {
 	activeSubscriptionGauge.Set(float64(activeSubscriptionCount))
 }
 
-func sendSticker(bot *telebot.Bot, UserID int64, URL string, EncounterID string) {
+func sendSticker(UserID int64, URL string, EncounterID string) {
 	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Sticker{File: telebot.FromURL(URL)}, &telebot.SendOptions{DisableNotification: true})
 	if err != nil {
 		log.Printf("❌ Failed to send sticker: %v", err)
@@ -453,7 +454,7 @@ func sendSticker(bot *telebot.Bot, UserID int64, URL string, EncounterID string)
 	}
 }
 
-func sendLocation(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, EncounterID string) {
+func sendLocation(UserID int64, Lat float32, Lon float32, EncounterID string) {
 	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Location{Lat: Lat, Lng: Lon}, &telebot.SendOptions{DisableNotification: true})
 	if err != nil {
 		log.Printf("❌ Failed to send location: %v", err)
@@ -464,7 +465,7 @@ func sendLocation(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Enco
 	}
 }
 
-func sendVenue(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Title string, Address string, EncounterID string) {
+func sendVenue(UserID int64, Lat float32, Lon float32, Title string, Address string, EncounterID string) {
 	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Venue{Location: telebot.Location{Lat: Lat, Lng: Lon}, Title: Title, Address: Address})
 	if err != nil {
 		log.Printf("❌ Failed to send venue: %v", err)
@@ -475,7 +476,7 @@ func sendVenue(bot *telebot.Bot, UserID int64, Lat float32, Lon float32, Title s
 	}
 }
 
-func sendMessage(bot *telebot.Bot, UserID int64, Text string, EncounterID string) {
+func sendMessage(UserID int64, Text string, EncounterID string) {
 	message, err := bot.Send(&telebot.User{ID: UserID}, Text, telebot.ModeMarkdown)
 	if err != nil {
 		log.Printf("❌ Failed to send message: %v", err)
@@ -486,7 +487,7 @@ func sendMessage(bot *telebot.Bot, UserID int64, Text string, EncounterID string
 	}
 }
 
-func sendEncounterNotification(bot *telebot.Bot, user User, encounter EncounterData) {
+func sendEncounterNotification(user User, encounter EncounterData) {
 	// Check if encounter has already been notified
 	if _, exists := sentNotifications[encounter.ID][user.ID]; exists {
 		log.Printf("🔕 Skipping notification for Pokémon #%d to %d (already sent)", encounter.PokemonID, user.ID)
@@ -502,10 +503,10 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter EncounterD
 
 	if !user.OnlyMap && user.Stickers {
 		url := fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d.webp", encounter.PokemonID)
-		sendSticker(bot, user.ID, url, encounter.ID)
+		sendSticker(user.ID, url, encounter.ID)
 	}
 	if !user.OnlyMap {
-		sendLocation(bot, user.ID, encounter.Lat, encounter.Lon, encounter.ID)
+		sendLocation(user.ID, encounter.Lat, encounter.Lon, encounter.ID)
 	}
 
 	expireTime := time.Unix(int64(*encounter.ExpireTimestamp), 0).In(timezone)
@@ -548,49 +549,10 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter EncounterD
 		getMoveName(*encounter.Move2, user.Language)))
 
 	if !user.OnlyMap {
-		sendMessage(bot, user.ID, notificationTitle+"\n"+notificationText.String(), encounter.ID)
+		sendMessage(user.ID, notificationTitle+"\n"+notificationText.String(), encounter.ID)
 	} else {
-		sendVenue(bot, user.ID, encounter.Lat, encounter.Lon, notificationTitle, notificationText.String(), encounter.ID)
+		sendVenue(user.ID, encounter.Lat, encounter.Lon, notificationTitle, notificationText.String(), encounter.ID)
 	}
-}
-
-func buildChannelSettings(bot *telebot.Bot, user User, channel User) (string, *telebot.ReplyMarkup) {
-	// Create interactive buttons
-	btnChangeLanguage := telebot.InlineButton{Text: getTranslation("🌍 Change Language", user.Language), Unique: "change_lang"}
-	btnSetMinIV := telebot.InlineButton{Text: getTranslation("✨ Set Minimal IV", user.Language), Unique: "set_min_iv"}
-	btnSetMinLevel := telebot.InlineButton{Text: getTranslation("🔢 Set Minimal Level", user.Language), Unique: "set_min_level"}
-	btnAddSubscription := telebot.InlineButton{Text: getTranslation("📣 Add Pokémon Subscription", user.Language), Unique: "add_subscription"}
-	btnListSubscriptions := telebot.InlineButton{Text: getTranslation("📋 List all Pokémon Subscriptions", user.Language), Unique: "list_subscriptions"}
-	btnClearSubscriptions := telebot.InlineButton{Text: getTranslation("🗑️ Clear all Pokémon Subscriptions", user.Language), Unique: "clear_subscriptions"}
-	btnReset := telebot.InlineButton{Text: getTranslation("🔄 Reset", user.Language), Unique: "reset"}
-	btnClose := telebot.InlineButton{Text: getTranslation("Close", user.Language), Unique: "close"}
-
-	chat, _ := bot.ChatByID(channel.ID)
-	// Settings message
-	settingsMessage := fmt.Sprintf(
-		getTranslation("⚙️ *Channel Settings:*", user.Language)+"\n"+
-			"----------------------------------------------\n"+
-			getTranslation("#️⃣ *Channel ID:* %d", user.Language)+"\n"+
-			getTranslation("#️⃣ *Channel Name:* %s", user.Language)+"\n"+
-			getTranslation("🌍 *Language:* %s", user.Language)+"\n"+
-			getTranslation("✨ *Minimal IV:* %d%%", user.Language)+"\n"+
-			getTranslation("🔢 *Minimal Level:* %d", user.Language)+"\n\n"+
-			getTranslation("Use the buttons below to update the settings", user.Language),
-		channel.ID, chat.Title, channel.Language, channel.MinIV, channel.MinLevel,
-	)
-
-	inlineKeyboard := [][]telebot.InlineButton{
-		{btnChangeLanguage},
-		{btnSetMinIV},
-		{btnSetMinLevel},
-		{btnAddSubscription},
-		{btnListSubscriptions},
-		{btnClearSubscriptions},
-		{btnReset},
-		{btnClose},
-	}
-
-	return settingsMessage, &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}
 }
 
 func buildSettings(user User) (string, *telebot.ReplyMarkup) {
@@ -649,6 +611,27 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 		boolToEmoji(user.Notify), boolToEmoji(user.Stickers), boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV), boolToEmoji(user.Cleanup),
 	)
 
+	if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
+		chat, _ := bot.ChatByID(user.ID)
+		// Settings message
+		settingsMessage = fmt.Sprintf(
+			getTranslation("⚙️ *Channel Settings:*", user.Language)+"\n"+
+				"----------------------------------------------\n"+
+				getTranslation("#️⃣ *Channel ID:* %d", user.Language)+"\n"+
+				getTranslation("#️⃣ *Channel Name:* %s", user.Language)+"\n"+
+				getTranslation("🌍 *Language:* %s", user.Language)+"\n"+
+				getTranslation("✨ *Minimal IV:* %d%%", user.Language)+"\n"+
+				getTranslation("🔢 *Minimal Level:* %d", user.Language)+"\n"+
+				getTranslation("🔔 *Notifications:* %s", user.Language)+"\n"+
+				getTranslation("🎭 *Pokémon Stickers:* %s", user.Language)+"\n"+
+				getTranslation("💯 *100%% IV Notifications:* %s", user.Language)+"\n"+
+				getTranslation("🚫 *0%% IV Notifications:* %s", user.Language)+"\n"+
+				getTranslation("🗑️ *Cleanup Expired Notifications:* %s", user.Language)+"\n\n"+
+				getTranslation("Use the buttons below to update the settings", user.Language),
+			user.ID, chat.Title, user.Language, user.MinIV, user.MinLevel, boolToEmoji(user.Stickers), boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV), boolToEmoji(user.Cleanup),
+		)
+	}
+
 	inlineKeyboard := [][]telebot.InlineButton{
 		{btnChangeLanguage},
 		{btnUpdateLocation},
@@ -666,13 +649,16 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 		{btnClose},
 	}
 
-	if _, ok := botAdmins[user.ID]; ok {
+	if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
+		btnReset := telebot.InlineButton{Text: getTranslation("🔄 Reset", user.Language), Unique: "reset"}
+		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnReset})
+	} else if _, ok := botAdmins[user.ID]; ok {
 		// Admin-only buttons
 		btnBroadcast := telebot.InlineButton{Text: getTranslation("📢 Broadcast Message", user.Language), Unique: "broadcast"}
 		btnListChannels := telebot.InlineButton{Text: getTranslation("📋 List Channels", user.Language), Unique: "list_channels"}
 		btnListUsers := telebot.InlineButton{Text: getTranslation("📋 List Users", user.Language), Unique: "list_users"}
 		btnImpersonateUser := telebot.InlineButton{Text: getTranslation("👤 Impersonate User", user.Language), Unique: "impersonate_user"}
-		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnBroadcast}, []telebot.InlineButton{btnListChannels}, []telebot.InlineButton{btnListUsers}, []telebot.InlineButton{btnImpersonateUser})
+		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnBroadcast, btnImpersonateUser}, []telebot.InlineButton{btnListUsers, btnListChannels})
 	}
 
 	return settingsMessage, &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}
@@ -688,7 +674,7 @@ func getUserID(c telebot.Context) int64 {
 	return userID
 }
 
-func setupBotHandlers(bot *telebot.Bot) {
+func setupBotHandlers() {
 
 	// /subscribe <pokemon_name> [min_iv]
 	bot.Handle("/subscribe", func(c telebot.Context) error {
@@ -834,12 +820,6 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 	bot.Handle("/settings", func(c telebot.Context) error {
 		userID := getUserID(c)
-		if strings.HasPrefix(strconv.FormatInt(userID, 10), "-100") {
-			channel := users.All[userID]
-			user := getUserPreferences(c.Sender().ID)
-			settingsMessage, replyMarkup := buildChannelSettings(bot, user, channel)
-			return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
-		}
 		user := getUserPreferences(userID)
 		settingsMessage, replyMarkup := buildSettings(user)
 		return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
@@ -1240,7 +1220,7 @@ func setupBotHandlers(bot *telebot.Bot) {
 	})
 }
 
-func processEncounters(bot *telebot.Bot) {
+func processEncounters() {
 	var lastCheck = time.Now().Unix() - 30
 	// Fetch current Pokémon encounters
 	var encounters []EncounterData
@@ -1249,11 +1229,11 @@ func processEncounters(bot *telebot.Bot) {
 	} else {
 		encounterGauge.Set(float64(len(encounters)))
 		log.Printf("✅ Found %d Pokémon", len(encounters))
-		filteredAndSendEncounters(bot, users, encounters)
+		filteredAndSendEncounters(users, encounters)
 	}
 }
 
-func filteredAndSendEncounters(bot *telebot.Bot, users FilteredUsers, encounters []EncounterData) {
+func filteredAndSendEncounters(users FilteredUsers, encounters []EncounterData) {
 	// Match encounters with subscriptions
 	for _, encounter := range encounters {
 		// Check for 100% IV Pokémon
@@ -1265,7 +1245,7 @@ func filteredAndSendEncounters(bot *telebot.Bot, users FilteredUsers, encounters
 						continue
 					}
 				}
-				sendEncounterNotification(bot, user, encounter)
+				sendEncounterNotification(user, encounter)
 			}
 		}
 		// Check for 0% IV Pokémon
@@ -1277,7 +1257,7 @@ func filteredAndSendEncounters(bot *telebot.Bot, users FilteredUsers, encounters
 						continue
 					}
 				}
-				sendEncounterNotification(bot, user, encounter)
+				sendEncounterNotification(user, encounter)
 			}
 		}
 		// Check for Channel Users
@@ -1288,7 +1268,7 @@ func filteredAndSendEncounters(bot *telebot.Bot, users FilteredUsers, encounters
 			if user.MinLevel == 0 && *encounter.IV >= float32(user.MinIV) ||
 				user.MinIV == 0 && *encounter.Level >= user.MinLevel ||
 				*encounter.IV >= float32(user.MinIV) && *encounter.Level >= user.MinLevel {
-				sendEncounterNotification(bot, user, encounter)
+				sendEncounterNotification(user, encounter)
 			}
 		}
 		// Check for subscribed Pokémon
@@ -1330,13 +1310,13 @@ func filteredAndSendEncounters(bot *telebot.Bot, users FilteredUsers, encounters
 						continue
 					}
 				}
-				sendEncounterNotification(bot, user, encounter)
+				sendEncounterNotification(user, encounter)
 			}
 		}
 	}
 }
 
-func cleanupMessages(bot *telebot.Bot) {
+func cleanupMessages() {
 	deletedMessagesCount := 0
 	var encounters []Encounter
 	dbConfig.Where("expiration < ?", time.Now().Unix()).Find(&encounters)
@@ -1364,13 +1344,13 @@ func cleanupMessages(bot *telebot.Bot) {
 	cleanupCounter.Add(float64(deletedMessagesCount))
 }
 
-func startBackgroundProcessing(bot *telebot.Bot) {
+func startBackgroundProcessing() {
 	// Background process to match encounters with subscriptions
 	go func() {
 		for {
 			time.Sleep(30 * time.Second)
-			cleanupMessages(bot)
-			processEncounters(bot)
+			cleanupMessages()
+			processEncounters()
 		}
 	}()
 }
@@ -1453,14 +1433,14 @@ func main() {
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
 	}
 
-	bot, err := telebot.NewBot(pref)
+	bot, err = telebot.NewBot(pref)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	setupBotHandlers(bot)
+	setupBotHandlers()
 
-	startBackgroundProcessing(bot)
+	startBackgroundProcessing()
 
 	bot.Start()
 }
