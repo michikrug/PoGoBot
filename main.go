@@ -554,6 +554,43 @@ func sendEncounterNotification(bot *telebot.Bot, user User, encounter EncounterD
 	}
 }
 
+func buildChannelSettings(bot *telebot.Bot, user User, channel User) (string, *telebot.ReplyMarkup) {
+	// Create interactive buttons
+	btnChangeLanguage := telebot.InlineButton{Text: getTranslation("🌍 Change Language", user.Language), Unique: "change_lang"}
+	btnSetMinIV := telebot.InlineButton{Text: getTranslation("✨ Set Minimal IV", user.Language), Unique: "set_min_iv"}
+	btnSetMinLevel := telebot.InlineButton{Text: getTranslation("🔢 Set Minimal Level", user.Language), Unique: "set_min_level"}
+	btnAddSubscription := telebot.InlineButton{Text: getTranslation("📣 Add Pokémon Subscription", user.Language), Unique: "add_subscription"}
+	btnListSubscriptions := telebot.InlineButton{Text: getTranslation("📋 List all Pokémon Subscriptions", user.Language), Unique: "list_subscriptions"}
+	btnClearSubscriptions := telebot.InlineButton{Text: getTranslation("🗑️ Clear all Pokémon Subscriptions", user.Language), Unique: "clear_subscriptions"}
+	btnClose := telebot.InlineButton{Text: getTranslation("Close", user.Language), Unique: "close"}
+
+	chat, _ := bot.ChatByID(user.ID)
+	// Settings message
+	settingsMessage := fmt.Sprintf(
+		getTranslation("⚙️ *Channel Settings:*", user.Language)+"\n"+
+			"----------------------------------------------\n"+
+			getTranslation("#️⃣ *Channel ID:* %s", user.Language)+"\n"+
+			getTranslation("#️⃣ *Channel Name:* %s", user.Language)+"\n"+
+			getTranslation("🌍 *Language:* %s", user.Language)+"\n"+
+			getTranslation("✨ *Minimal IV:* %d%%", user.Language)+"\n"+
+			getTranslation("🔢 *Minimal Level:* %d", user.Language)+"\n\n"+
+			getTranslation("Use the buttons below to update your settings", user.Language),
+		channel.ID, chat.Username, channel.Language, channel.MinIV, channel.MinLevel,
+	)
+
+	inlineKeyboard := [][]telebot.InlineButton{
+		{btnChangeLanguage},
+		{btnSetMinIV},
+		{btnSetMinLevel},
+		{btnAddSubscription},
+		{btnListSubscriptions},
+		{btnClearSubscriptions},
+		{btnClose},
+	}
+
+	return settingsMessage, &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}
+}
+
 func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 	// Create interactive buttons
 	btnChangeLanguage := telebot.InlineButton{Text: getTranslation("🌍 Change Language", user.Language), Unique: "change_lang"}
@@ -630,9 +667,10 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 	if _, ok := botAdmins[user.ID]; ok {
 		// Admin-only buttons
 		btnBroadcast := telebot.InlineButton{Text: getTranslation("📢 Broadcast Message", user.Language), Unique: "broadcast"}
+		btnListChannels := telebot.InlineButton{Text: getTranslation("📋 List Channels", user.Language), Unique: "list_channels"}
 		btnListUsers := telebot.InlineButton{Text: getTranslation("📋 List Users", user.Language), Unique: "list_users"}
 		btnImpersonateUser := telebot.InlineButton{Text: getTranslation("👤 Impersonate User", user.Language), Unique: "impersonate_user"}
-		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnBroadcast, btnListUsers, btnImpersonateUser})
+		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnBroadcast}, []telebot.InlineButton{btnListChannels}, []telebot.InlineButton{btnListUsers}, []telebot.InlineButton{btnImpersonateUser})
 	}
 
 	return settingsMessage, &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}
@@ -967,6 +1005,9 @@ func setupBotHandlers(bot *telebot.Bot) {
 		c.Send(fmt.Sprintf("📋 *All Users:* %d\n\n", len(users.All)), telebot.ModeMarkdown)
 
 		for _, user := range users.All {
+			if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
+				continue
+			}
 			chat, _ := bot.ChatByID(user.ID)
 			entry := fmt.Sprintf("🔹 %d: %s (Notify: %s)\n", user.ID, chat.Username, boolToEmoji(user.Notify))
 			if text.Len()+len(entry) > 4000 { // Telegram message limit is 4096 bytes
@@ -977,6 +1018,40 @@ func setupBotHandlers(bot *telebot.Bot) {
 		}
 
 		return c.Send(text.String())
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "list_channels"}, func(c telebot.Context) error {
+		userID := c.Sender().ID
+		language := users.All[userID].Language
+		if _, ok := botAdmins[userID]; !ok {
+			return c.Edit(getTranslation("❌ You are not authorized to use this command", language))
+		}
+
+		inlineKeyboard := [][]telebot.InlineButton{}
+		for _, user := range users.Channels {
+			chat, _ := bot.ChatByID(user.ID)
+			btnEditChannel := telebot.InlineButton{
+				Text:   fmt.Sprintf(getTranslation("%s - Edit Channel", user.Language), chat.Username),
+				Unique: "edit_channel",
+				Data:   strconv.FormatInt(user.ID, 10),
+			}
+			inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnEditChannel})
+		}
+
+		return c.Edit(fmt.Sprintf("📋 *All Channels:* %d\n\n", len(users.Channels)), &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard})
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "edit_channel"}, func(c telebot.Context) error {
+		userID := c.Sender().ID
+		language := users.All[userID].Language
+		if _, ok := botAdmins[userID]; !ok {
+			return c.Edit(getTranslation("❌ You are not authorized to use this command", language))
+		}
+
+		channelID, _ := strconv.ParseInt(c.Callback().Data, 10, 64)
+		settingsMessage, replyMarkup := buildChannelSettings(bot, users.All[userID], users.All[channelID])
+		botAdmins[userID] = channelID
+		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "impersonate_user"}, func(c telebot.Context) error {
