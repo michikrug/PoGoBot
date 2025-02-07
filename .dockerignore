@@ -1,0 +1,15 @@
+# Ignore version control files
+.git/
+.gitignore
+.vscode/
+
+# Ignore system-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore environment files
+.env
+*.env
+
+# Ignore test files
+*_test.go
