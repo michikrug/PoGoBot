@@ -564,12 +564,12 @@ func buildChannelSettings(bot *telebot.Bot, user User, channel User) (string, *t
 	btnClearSubscriptions := telebot.InlineButton{Text: getTranslation("🗑️ Clear all Pokémon Subscriptions", user.Language), Unique: "clear_subscriptions"}
 	btnClose := telebot.InlineButton{Text: getTranslation("Close", user.Language), Unique: "close"}
 
-	chat, _ := bot.ChatByID(user.ID)
+	chat, _ := bot.ChatByID(channel.ID)
 	// Settings message
 	settingsMessage := fmt.Sprintf(
 		getTranslation("⚙️ *Channel Settings:*", user.Language)+"\n"+
 			"----------------------------------------------\n"+
-			getTranslation("#️⃣ *Channel ID:* %s", user.Language)+"\n"+
+			getTranslation("#️⃣ *Channel ID:* %d", user.Language)+"\n"+
 			getTranslation("#️⃣ *Channel Name:* %s", user.Language)+"\n"+
 			getTranslation("🌍 *Language:* %s", user.Language)+"\n"+
 			getTranslation("✨ *Minimal IV:* %d%%", user.Language)+"\n"+
@@ -832,6 +832,10 @@ func setupBotHandlers(bot *telebot.Bot) {
 
 	bot.Handle("/settings", func(c telebot.Context) error {
 		user := getUserPreferences(getUserID(c))
+		if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
+			settingsMessage, replyMarkup := buildChannelSettings(user)
+			return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
+		}
 		settingsMessage, replyMarkup := buildSettings(user)
 		return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
@@ -1031,14 +1035,14 @@ func setupBotHandlers(bot *telebot.Bot) {
 		for _, user := range users.Channels {
 			chat, _ := bot.ChatByID(user.ID)
 			btnEditChannel := telebot.InlineButton{
-				Text:   fmt.Sprintf(getTranslation("%s - Edit Channel", user.Language), chat.Username),
+				Text:   fmt.Sprintf(getTranslation("%s (%d) - Edit Channel", user.Language), chat.Username, user.ID),
 				Unique: "edit_channel",
 				Data:   strconv.FormatInt(user.ID, 10),
 			}
 			inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnEditChannel})
 		}
 
-		return c.Edit(fmt.Sprintf("📋 *All Channels:* %d\n\n", len(users.Channels)), &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard})
+		return c.Edit(fmt.Sprintf("📋 *All Channels:* %d\n\n", len(users.Channels)), &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "edit_channel"}, func(c telebot.Context) error {
@@ -1049,9 +1053,9 @@ func setupBotHandlers(bot *telebot.Bot) {
 		}
 
 		channelID, _ := strconv.ParseInt(c.Callback().Data, 10, 64)
-		settingsMessage, replyMarkup := buildChannelSettings(bot, users.All[userID], users.All[channelID])
 		botAdmins[userID] = channelID
-		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
+		c.Delete()
+		return bot.Trigger("/settings", c)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "impersonate_user"}, func(c telebot.Context) error {
