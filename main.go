@@ -1000,7 +1000,7 @@ func setupBotHandlers() {
 		}
 
 		var text strings.Builder
-		c.Send(fmt.Sprintf("📋 *All Users:* %d\n\n", len(users.All)), telebot.ModeMarkdown)
+		c.Send(fmt.Sprintf(getTranslation("📋 *All Users:* %d", language)+"\n\n", len(users.All)), telebot.ModeMarkdown)
 
 		for _, user := range users.All {
 			if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
@@ -1026,14 +1026,14 @@ func setupBotHandlers() {
 		}
 
 		var text strings.Builder
-		text.WriteString(fmt.Sprintf("📋 *All Channels:* %d\n\n", len(users.Channels)))
+		text.WriteString(fmt.Sprintf(getTranslation("📋 *All Channels:* %d", language)+"\n\n", len(users.Channels)))
 
 		inlineKeyboard := [][]telebot.InlineButton{}
 		for _, channel := range users.Channels {
 			chat, _ := bot.ChatByID(channel.ID)
 			text.WriteString(fmt.Sprintf("🔹 %s @%s (%d) - Notify: %s\n", chat.Title, chat.Username, channel.ID, boolToEmoji(channel.Notify)))
 			btnEditChannel := telebot.InlineButton{
-				Text:   fmt.Sprintf(getTranslation("Edit %s", language), chat.Title),
+				Text:   fmt.Sprintf(getTranslation("✏️ Edit %s", language), chat.Title),
 				Unique: "edit_channel",
 				Data:   strconv.FormatInt(channel.ID, 10),
 			}
@@ -1083,6 +1083,13 @@ func setupBotHandlers() {
 	bot.Handle(telebot.OnText, func(c telebot.Context) error {
 		userID := c.Sender().ID
 		language := users.All[userID].Language
+
+		if userStates[userID] != "" && (strings.ToLower(c.Text()) == "abbruch" || strings.ToLower(c.Text()) == "cancel") {
+			userStates[userID] = ""
+
+			return c.Send(getTranslation("❌ Aborted", language))
+		}
+
 		if userStates[userID] == "add_subscription" {
 			pokemonName := c.Text()
 			pokemonID, err := getPokemonID(pokemonName)
@@ -1096,6 +1103,7 @@ func setupBotHandlers() {
 				getPokemonName(pokemonID, language),
 			))
 		}
+
 		if strings.HasPrefix(userStates[userID], "add_subscription_iv") {
 			pokemonID, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[3])
 
@@ -1110,6 +1118,7 @@ func setupBotHandlers() {
 
 			return c.Send(fmt.Sprintf("✨ Minimal IV set to %d%%. Please enter the minimal Pokémon level (0-40):", minIV))
 		}
+
 		if strings.HasPrefix(userStates[userID], "add_subscription_level") {
 			pokemonID, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[3])
 			minIV, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[4])
@@ -1125,6 +1134,7 @@ func setupBotHandlers() {
 
 			return c.Send(fmt.Sprintf("🔢 Minimal level set to %d. Please enter the maximal distance (in m):", minLevel))
 		}
+
 		if strings.HasPrefix(userStates[userID], "add_subscription_distance") {
 			pokemonID, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[3])
 			minIV, _ := strconv.Atoi(strings.Split(userStates[userID], "_")[4])
@@ -1147,6 +1157,7 @@ func setupBotHandlers() {
 				minIV, minLevel, maxDistance,
 			))
 		}
+
 		if userStates[userID] == "set_distance" {
 			// Parse user input
 			var maxDistance int
@@ -1162,6 +1173,7 @@ func setupBotHandlers() {
 
 			return c.Send(fmt.Sprintf(getTranslation("✅ Maximal distance updated to %dm", language), maxDistance))
 		}
+
 		if userStates[userID] == "set_min_iv" {
 			// Parse user input
 			var minIV int
@@ -1177,6 +1189,7 @@ func setupBotHandlers() {
 
 			return c.Send(fmt.Sprintf(getTranslation("✅ Minimal IV updated to %d%%", language), minIV))
 		}
+
 		if userStates[userID] == "set_min_level" {
 			// Parse user input
 			var minLevel int
@@ -1192,6 +1205,7 @@ func setupBotHandlers() {
 
 			return c.Send(fmt.Sprintf(getTranslation("✅ Minimal Level updated to %d", language), minLevel))
 		}
+
 		if userStates[userID] == "broadcast" {
 			if _, ok := botAdmins[userID]; !ok {
 				return c.Send(getTranslation("❌ You are not authorized to use this command", language))
@@ -1208,6 +1222,7 @@ func setupBotHandlers() {
 
 			return c.Send(getTranslation("📢 Broadcast sent to all users", language))
 		}
+
 		if userStates[userID] == "impersonate_user" {
 			if _, ok := botAdmins[userID]; !ok {
 				return c.Send(getTranslation("❌ You are not authorized to use this command", language))
@@ -1226,6 +1241,7 @@ func setupBotHandlers() {
 
 			return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 		}
+
 		return nil
 	})
 }
