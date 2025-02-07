@@ -1039,7 +1039,7 @@ func setupBotHandlers() {
 			}
 			inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnEditChannel})
 		}
-		btnClose := telebot.InlineButton{Text: getTranslation("Close", user.Language), Unique: "close"}
+		btnClose := telebot.InlineButton{Text: getTranslation("Close", language), Unique: "close"}
 		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnClose})
 
 		return c.Edit(text.String(), &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}, telebot.ModeMarkdown)
