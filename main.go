@@ -607,8 +607,11 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 			getTranslation("🚫 *0%% IV Notifications:* %s", user.Language)+"\n"+
 			getTranslation("🗑️ *Cleanup Expired Notifications:* %s", user.Language)+"\n\n"+
 			getTranslation("Use the buttons below to update the settings", user.Language),
-		user.Language, user.Latitude, user.Longitude, user.MaxDistance, user.MinIV, user.MinLevel,
-		boolToEmoji(user.Notify), boolToEmoji(user.Stickers), boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV), boolToEmoji(user.Cleanup),
+		user.Language, user.Latitude, user.Longitude,
+		user.MaxDistance, user.MinIV, user.MinLevel,
+		boolToEmoji(user.Notify), boolToEmoji(user.Stickers),
+		boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV),
+		boolToEmoji(user.Cleanup),
 	)
 
 	if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
@@ -628,7 +631,10 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 				getTranslation("🚫 *0%% IV Notifications:* %s", user.Language)+"\n"+
 				getTranslation("🗑️ *Cleanup Expired Notifications:* %s", user.Language)+"\n\n"+
 				getTranslation("Use the buttons below to update the settings", user.Language),
-			user.ID, chat.Title, user.Language, user.MinIV, user.MinLevel, boolToEmoji(user.Stickers), boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV), boolToEmoji(user.Cleanup),
+			user.ID, chat.Title, user.Language, user.MinIV, user.MinLevel,
+			boolToEmoji(user.Notify), boolToEmoji(user.Stickers),
+			boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV),
+			boolToEmoji(user.Cleanup),
 		)
 	}
 
@@ -1021,18 +1027,22 @@ func setupBotHandlers() {
 			return c.Edit(getTranslation("❌ You are not authorized to use this command", language))
 		}
 
+		var text strings.Builder
+		text.WriteString(fmt.Sprintf("📋 *All Channels:* %d\n\n", len(users.Channels)))
+
 		inlineKeyboard := [][]telebot.InlineButton{}
-		for _, user := range users.Channels {
-			chat, _ := bot.ChatByID(user.ID)
+		for _, channel := range users.Channels {
+			chat, _ := bot.ChatByID(channel.ID)
+			text.WriteString(fmt.Sprintf("🔹 %s @%s (%d) - Notify: %s\n", chat.Title, chat.Username, channel.ID, boolToEmoji(channel.Notify)))
 			btnEditChannel := telebot.InlineButton{
-				Text:   fmt.Sprintf(getTranslation("%s (%d) - Edit Channel", user.Language), chat.Title, user.ID),
+				Text:   fmt.Sprintf(getTranslation("Edit %s", language), chat.Title),
 				Unique: "edit_channel",
-				Data:   strconv.FormatInt(user.ID, 10),
+				Data:   strconv.FormatInt(channel.ID, 10),
 			}
 			inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnEditChannel})
 		}
 
-		return c.Edit(fmt.Sprintf("📋 *All Channels:* %d\n\n", len(users.Channels)), &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}, telebot.ModeMarkdown)
+		return c.Edit(text.String(), &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}, telebot.ModeMarkdown)
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "edit_channel"}, func(c telebot.Context) error {
