@@ -861,9 +861,7 @@ func setupBotHandlers() {
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "close"}, func(c telebot.Context) error {
-		userID := c.Sender().ID
-		language := users.All[userID].Language
-		return c.Edit(getTranslation("✅ Settings closed", language))
+		return c.Delete()
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "add_subscription"}, func(c telebot.Context) error {
@@ -1041,6 +1039,8 @@ func setupBotHandlers() {
 			}
 			inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnEditChannel})
 		}
+		btnClose := telebot.InlineButton{Text: getTranslation("Close", user.Language), Unique: "close"}
+		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnClose})
 
 		return c.Edit(text.String(), &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}, telebot.ModeMarkdown)
 	})
