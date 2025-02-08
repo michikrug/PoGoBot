@@ -90,4 +90,4 @@ Pull requests are welcome! Please follow the existing code structure and submit 
 
 ## License
 
-This project is licensed under the **GNU General Public License (GPL)**. See `LICENSE` for details.
+This project is licensed under the GNU General Public License v3. See the [LICENSE](LICENSE) file for details.
