@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -1441,14 +1444,6 @@ func init() {
 	customRegistry.MustRegister(activeSubscriptionGauge)
 }
 
-func startMetricsServer() {
-	http.Handle("/metrics", promhttp.HandlerFor(customRegistry, promhttp.HandlerOpts{}))
-	go func() {
-		log.Println("🚀 Prometheus metrics available at /metrics")
-		log.Fatal(http.ListenAndServe(":9001", nil))
-	}()
-}
-
 func main() {
 	log.Println("🚀 Starting PoGo Notification Bot")
 
@@ -1472,9 +1467,6 @@ func main() {
 		}
 		botAdmins[id] = id
 	}
-
-	// Start Prometheus metrics server
-	startMetricsServer()
 
 	userStates = make(map[int64]string)
 	sentNotifications = make(map[string]map[int64]struct{})
@@ -1519,4 +1511,25 @@ func main() {
 	startBackgroundProcessing()
 
 	bot.Start()
+
+	// Start Prometheus metrics server
+	http.Handle("/metrics", promhttp.HandlerFor(customRegistry, promhttp.HandlerOpts{}))
+	server := &http.Server{Addr: ":9001"}
+	go func() {
+		log.Println("🚀 Prometheus metrics available at /metrics")
+		if err := server.ListenAndServe(); err != nil {
+			log.Fatalf("❌ HTTP server error: %v", err)
+		}
+	}()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	<-sigChan
+
+	log.Println("🛑 Shutting down PoGo Notification Bot")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("❌ HTTP server shutdown failed: %v", err)
+	}
 }
