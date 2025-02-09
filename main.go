@@ -529,7 +529,7 @@ func sendEncounterNotification(user User, encounter EncounterData) {
 		name := getPokemonName(encounter.PokemonID, user.Language)
 
 		formSuffix := ""
-		if encounter.Form != nil {
+		if encounter.Form != nil && *encounter.Form > 0 {
 			pkm := MasterFileData.Pokemon[strconv.Itoa(encounter.PokemonID)]
 			if form, exists := pkm.Forms[strconv.Itoa(*encounter.Form)]; exists && form.Name != "Normal" {
 				costumeEmoji := ""
