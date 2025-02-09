@@ -597,9 +597,11 @@ func sendEncounterNotification(user User, encounter EncounterData) {
 		expireTime.Format(time.TimeOnly),
 		timeLeft.Truncate(time.Second).String()))
 
-	notificationText.WriteString(fmt.Sprintf("💥 %s / %s",
-		getMoveName(*encounter.Move1, user.Language),
-		getMoveName(*encounter.Move2, user.Language)))
+	if encounter.Move1 != nil && encounter.Move2 != nil {
+		notificationText.WriteString(fmt.Sprintf("💥 %s / %s",
+			getMoveName(*encounter.Move1, user.Language),
+			getMoveName(*encounter.Move2, user.Language)))
+	}
 
 	if !user.OnlyMap {
 		sendMessage(user.ID, notificationTitle+"\n"+notificationText.String(), encounter.ID)
