@@ -504,7 +504,7 @@ func sendEncounterNotification(user User, encounter EncounterData) {
 	if !user.OnlyMap && user.Stickers {
 		var formSuffix string
 		// Determine if a non-default form sticker should be used.
-		if encounter.Form != nil {
+		if encounter.Form != nil && *encounter.Form > 0 {
 			pokemonKey := strconv.Itoa(encounter.PokemonID)
 			formKey := strconv.Itoa(*encounter.Form)
 			if pkm, exists := MasterFileData.Pokemon[pokemonKey]; exists {
