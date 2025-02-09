@@ -502,8 +502,20 @@ func sendEncounterNotification(user User, encounter EncounterData) {
 	notificationsCounter.Inc()
 
 	if !user.OnlyMap && user.Stickers {
-		url := fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d.webp", encounter.PokemonID)
-		sendSticker(user.ID, url, encounter.ID)
+		var formSuffix string
+		// Determine if a non-default form sticker should be used.
+		if encounter.Form != nil {
+			pokemonKey := strconv.Itoa(encounter.PokemonID)
+			formKey := strconv.Itoa(*encounter.Form)
+			if pkm, exists := MasterFileData.Pokemon[pokemonKey]; exists {
+				if form, exists := pkm.Forms[formKey]; exists && form.Name != "Normal" {
+					formSuffix = fmt.Sprintf("_f%s", formKey)
+				}
+			}
+		}
+		// Build and send the sticker URL.
+		stickerURL := fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d%s.webp", encounter.PokemonID, formSuffix)
+		sendSticker(user.ID, stickerURL, encounter.ID)
 	}
 	if !user.OnlyMap {
 		sendLocation(user.ID, encounter.Lat, encounter.Lon, encounter.ID)
@@ -512,23 +524,48 @@ func sendEncounterNotification(user User, encounter EncounterData) {
 	expireTime := time.Unix(int64(*encounter.ExpireTimestamp), 0).In(timezone)
 	timeLeft := time.Until(expireTime)
 
-	notificationTitle := fmt.Sprintf("*🔔 %s %s %.1f%% %d|%d|%d %d%s L%d* %s",
-		getPokemonName(encounter.PokemonID, user.Language),
-		genderMap[*encounter.Gender],
-		*encounter.IV,
-		*encounter.AtkIV,
-		*encounter.DefIV,
-		*encounter.StaIV,
-		*encounter.CP,
-		func() string {
-			if user.Language == "en" {
-				return "CP"
+	notificationTitle := func() string {
+		// Retrieve Pokémon name and form (if applicable)
+		name := getPokemonName(encounter.PokemonID, user.Language)
+
+		formSuffix := ""
+		if encounter.Form != nil {
+			pkm := MasterFileData.Pokemon[strconv.Itoa(encounter.PokemonID)]
+			if form, exists := pkm.Forms[strconv.Itoa(*encounter.Form)]; exists && form.Name != "Normal" {
+				costumeEmoji := ""
+				if form.IsCostume {
+					costumeEmoji = "👕 "
+				}
+				formSuffix = fmt.Sprintf(" (%s%s)", costumeEmoji, getTranslation(form.Name, user.Language))
 			}
-			return "WP"
-		}(),
-		*encounter.Level,
-		weatherMap[*encounter.Weather],
-	)
+		}
+
+		// Retrieve gender emoji
+		genderEmoji := genderMap[*encounter.Gender]
+
+		// Determine CP / WP string based on language
+		cpLabel := "CP"
+		if user.Language != "en" {
+			cpLabel = "WP"
+		}
+
+		// Retrieve weather emoji
+		weatherEmoji := weatherMap[*encounter.Weather]
+
+		return fmt.Sprintf("*🔔 %s%s %s %.1f%% %d|%d|%d %d%s L%d* %s",
+			name,
+			formSuffix,
+			genderEmoji,
+			*encounter.IV,
+			*encounter.AtkIV,
+			*encounter.DefIV,
+			*encounter.StaIV,
+			*encounter.CP,
+			cpLabel,
+			*encounter.Level,
+			weatherEmoji,
+		)
+	}()
 
 	var notificationText strings.Builder
 	if user.Latitude != 0 && user.Longitude != 0 {
