@@ -549,10 +549,22 @@ func sendEncounterNotification(user User, encounter EncounterData) {
 			cpLabel = "WP"
 		}
 
-		// Retrieve weather emoji
-		weatherEmoji := weatherMap[*encounter.Weather]
+		var sizeEmoji string
+		if encounter.Size != nil {
+			switch *encounter.Size {
+			case 1:
+				sizeEmoji = " 🔹"
+			case 5:
+				sizeEmoji = " 🔶"
+			default:
+				sizeEmoji = ""
+			}
+		}
 
-		return fmt.Sprintf("*🔔 %s%s %s %.1f%% %d|%d|%d %d%s L%d* %s",
+		// Retrieve weather emoji
+		weatherEmoji := " " + weatherMap[*encounter.Weather]
+
+		return fmt.Sprintf("*🔔 %s%s %s %.1f%% %d|%d|%d %d%s L%d*%s%s",
 			name,
 			formSuffix,
 			genderEmoji,
@@ -563,6 +575,7 @@ func sendEncounterNotification(user User, encounter EncounterData) {
 			*encounter.CP,
 			cpLabel,
 			*encounter.Level,
+			sizeEmoji,
 			weatherEmoji,
 		)
 	}()
