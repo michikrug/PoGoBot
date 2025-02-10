@@ -293,35 +293,29 @@ func initDB() {
 func loadMasterFile(filename string) error {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		log.Printf("❌ Failed to load Master File: %v", err)
-		return nil
+		return fmt.Errorf("failed to read masterfile (%s): %w", filename, err)
 	}
 
-	err = json.Unmarshal(data, &MasterFileData)
-	if err != nil {
-		log.Printf("❌ Failed to parse Master File: %v", err)
-		return nil
+	if err := json.Unmarshal(data, &MasterFileData); err != nil {
+		return fmt.Errorf("failed to unmarshal JSON from (%s): %w", filename, err)
 	}
 
-	log.Printf("✅ Loaded Master File with %d Pokémon & %d Moves", len(MasterFileData.Pokemon), len(MasterFileData.Moves))
+	log.Printf("✅ Loaded Master File: %d Pokémon & %d Moves", len(MasterFileData.Pokemon), len(MasterFileData.Moves))
 	return nil
 }
 
 func loadTranslationFile(filename string) error {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		log.Printf("❌ Failed to load Translation File: %v", err)
-		return nil
+		return fmt.Errorf("failed to read translation file %s: %w", filename, err)
 	}
 
-	err = json.Unmarshal(data, &TranslationData)
-	if err != nil {
-		log.Printf("❌ Failed to parse Translation File: %v", err)
-		return nil
+	if err = json.Unmarshal(data, &TranslationData); err != nil {
+		return fmt.Errorf("failed to unmarshal JSON from %s: %w", filename, err)
 	}
 
 	for lang, translations := range TranslationData {
-		log.Printf("✅ Loaded Translation File with %d translations for language: %s", len(translations), lang)
+		log.Printf("✅ Loaded %d translations for language: %s", len(translations), lang)
 	}
 
 	return nil
@@ -1449,20 +1443,20 @@ func init() {
 func main() {
 	log.Println("🚀 Starting PoGo Notification Bot")
 
-	// Load .env file
+	// Load environment variables from .env file, if available.
 	if err := godotenv.Load(); err != nil {
 		log.Println("⚠️ No .env file found, using system environment variables")
 	}
-	// Required environment variables
+	// Check required environment variables.
 	requiredVars := []string{
 		"BOT_TOKEN", "BOT_ADMINS", "BOT_DB_USER", "BOT_DB_PASS", "BOT_DB_NAME", "BOT_DB_HOST",
 		"SCANNER_DB_USER", "SCANNER_DB_PASS", "SCANNER_DB_NAME", "SCANNER_DB_HOST",
 	}
 	checkEnvVars(requiredVars)
 
-	admins := strings.Split(os.Getenv("BOT_ADMINS"), ",")
+	// Configure bot administrators.
 	botAdmins = make(map[int64]int64)
-	for _, admin := range admins {
+	for _, admin := range strings.Split(os.Getenv("BOT_ADMINS"), ",") {
 		id, err := strconv.ParseInt(admin, 10, 64)
 		if err != nil {
 			log.Fatalf("❌ Invalid admin ID: %v", err)
@@ -1470,53 +1464,49 @@ func main() {
 		botAdmins[id] = id
 	}
 
+	// Initialize state maps.
 	userStates = make(map[int64]string)
 	sentNotifications = make(map[string]map[int64]struct{})
 
-	// Load masterfile
-	loadMasterFile("masterfile.json")
-
-	// Load translations
-	loadTranslationFile("translations.json")
-
-	// Load Pokémon name mappings
+	// Load static files.
+	if err := loadMasterFile("masterfile.json"); err != nil {
+		log.Fatalf("❌ Unable to load masterfile: %v", err)
+	}
+	if err := loadTranslationFile("translations.json"); err != nil {
+		log.Fatalf("❌ Unable to load translations: %v", err)
+	}
 	loadPokemonNameMappings()
 
-	// Initialize databases
+	// Initialize databases.
 	initDB()
-
-	// Load users into a map
 	getUsersByFilters()
-
-	// Load subscriptions into a map
 	getActiveSubscriptions()
 
+	// Set timezone.
 	var err error
 	if timezone, err = time.LoadLocation("Local"); err != nil {
 		log.Printf("❌ Failed to load local timezone: %v", err)
 		timezone = time.UTC
 	}
 
+	// Create new bot using token.
 	telegramBotToken := os.Getenv("BOT_TOKEN")
 	pref := telebot.Settings{
 		Token:  telegramBotToken,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
 	}
-
 	bot, err = telebot.NewBot(pref)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("❌ Failed to initialize bot: %v", err)
 	}
 
+	// Setup bot handlers and background processes.
 	setupBotHandlers()
-
 	startBackgroundProcessing()
 
-	bot.Start()
-
-	// Start Prometheus metrics server
-	http.Handle("/metrics", promhttp.HandlerFor(customRegistry, promhttp.HandlerOpts{}))
+	// Start Prometheus metrics server in a new goroutine.
 	server := &http.Server{Addr: ":9001"}
+	http.Handle("/metrics", promhttp.HandlerFor(customRegistry, promhttp.HandlerOpts{}))
 	go func() {
 		log.Println("🚀 Prometheus metrics available at /metrics")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -1524,16 +1514,26 @@ func main() {
 		}
 	}()
 
-	// Graceful shutdown
+	// Use a context with cancellation for graceful shutdown.
+	shutdownCtx, stop := context.WithCancel(context.Background())
+	defer stop()
+
+	// Listen for termination signals.
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	<-sigChan
+	go func() {
+		sig := <-sigChan
+		log.Printf("🛑 Caught signal %v: shutting down", sig)
+		bot.Stop()
+		// Shutdown the metrics server gracefully.
+		ctx, cancel := context.WithTimeout(shutdownCtx, 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			log.Fatalf("❌ HTTP server shutdown failed: %v", err)
+		}
+		os.Exit(0)
+	}()
 
-	log.Println("🛑 Shutting down PoGo Notification Bot")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("❌ HTTP server shutdown failed: %v", err)
-	}
+	// Start the bot.
+	bot.Start()
 }
