@@ -935,7 +935,7 @@ func setupBotHandlers() {
 			return c.Send("❌ Invalid Gym ID")
 		}
 		var gym GymData
-		dbScanner.First(&gym, gymID)
+		dbScanner.First(&gym, GymData{ID: gymID})
 		c.Delete()
 		return c.Send(&telebot.Venue{Location: telebot.Location{Lat: float32(gym.Lat), Lng: float32(gym.Lon)}, Title: *gym.Name, Address: *gym.Description})
 	})
