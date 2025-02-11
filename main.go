@@ -1308,11 +1308,11 @@ func processEncounters() {
 	} else {
 		encounterGauge.Set(float64(len(encounters)))
 		log.Printf("✅ Found %d Pokémon", len(encounters))
-		filteredAndSendEncounters(users, encounters)
+		filterAndSendEncounters(users, encounters)
 	}
 }
 
-func filteredAndSendEncounters(users FilteredUsers, encounters []EncounterData) {
+func filterAndSendEncounters(users FilteredUsers, encounters []EncounterData) {
 	// Match encounters with subscriptions
 	for _, encounter := range encounters {
 		// Check for 100% IV Pokémon
