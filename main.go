@@ -926,7 +926,7 @@ func setupBotHandlers() {
 			return c.Send(text, &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}, telebot.ModeMarkdown)
 		}
 		gym := gyms[0]
-		return c.Send(&telebot.Venue{Location: telebot.Location{Lat: float32(gym.Lat), Lng: float32(gym.Lon)}, Title: *gym.Name, Address: *gym.Description})
+		return c.Send(&telebot.Venue{Location: telebot.Location{Lat: float32(gym.Lat), Lng: float32(gym.Lon)}, Title: *gym.Name})
 	})
 
 	bot.Handle(&telebot.InlineButton{Unique: "locate_gym"}, func(c telebot.Context) error {
@@ -937,7 +937,7 @@ func setupBotHandlers() {
 		var gym GymData
 		dbScanner.First(&gym, GymData{ID: gymID})
 		c.Delete()
-		return c.Send(&telebot.Venue{Location: telebot.Location{Lat: float32(gym.Lat), Lng: float32(gym.Lon)}, Title: *gym.Name, Address: *gym.Description})
+		return c.Send(&telebot.Venue{Location: telebot.Location{Lat: float32(gym.Lat), Lng: float32(gym.Lon)}, Title: *gym.Name})
 	})
 
 	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
