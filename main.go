@@ -120,12 +120,12 @@ type MasterFile struct {
 
 type Pokemon struct {
 	Name          string          `json:"name"`
-	PokedexId     int             `json:"pokedexId"`
-	DefaultFormId int             `json:"defaultFormId"`
+	PokedexID     int             `json:"pokedexId"`
+	DefaultFormID int             `json:"defaultFormId"`
 	Types         []int           `json:"types"`
 	QuickMoves    []int           `json:"quickMoves"`
 	ChargedMoves  []int           `json:"chargedMoves"`
-	GenId         int             `json:"genId"`
+	GenID         int             `json:"genId"`
 	Generation    string          `json:"generation"`
 	Forms         map[string]Form `json:"forms"`
 	Height        float64         `json:"height"`
@@ -325,10 +325,10 @@ func loadPokemonNameMappings() {
 	pokemonNameToID = make(map[string]int)
 
 	for _, pokemon := range MasterFileData.Pokemon {
-		pokemonNameToID[strings.ToLower(pokemon.Name)] = pokemon.PokedexId
+		pokemonNameToID[strings.ToLower(pokemon.Name)] = pokemon.PokedexID
 		for _, translations := range TranslationData {
 			if translation, exists := translations[pokemon.Name]; exists {
-				pokemonNameToID[strings.ToLower(translation)] = pokemon.PokedexId
+				pokemonNameToID[strings.ToLower(translation)] = pokemon.PokedexID
 			}
 		}
 	}
