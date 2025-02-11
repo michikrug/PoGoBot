@@ -440,7 +440,7 @@ func getActiveSubscriptions() {
 	activeSubscriptionGauge.Set(float64(activeSubscriptionCount))
 }
 
-func sendSticker(UserID int64, URL string, EncounterID string) {
+func sendSticker(UserID int64, URL string, EncounterID string) error {
 	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Sticker{File: telebot.FromURL(URL)}, &telebot.SendOptions{DisableNotification: true})
 	if err != nil {
 		log.Printf("❌ Failed to send sticker: %v", err)
@@ -449,9 +449,10 @@ func sendSticker(UserID int64, URL string, EncounterID string) {
 		// Store message ID for cleanup
 		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
 	}
+	return err
 }
 
-func sendLocation(UserID int64, Lat float32, Lon float32, EncounterID string) {
+func sendLocation(UserID int64, Lat float32, Lon float32, EncounterID string) error {
 	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Location{Lat: Lat, Lng: Lon}, &telebot.SendOptions{DisableNotification: true})
 	if err != nil {
 		log.Printf("❌ Failed to send location: %v", err)
@@ -460,9 +461,10 @@ func sendLocation(UserID int64, Lat float32, Lon float32, EncounterID string) {
 		// Store message ID for cleanup
 		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
 	}
+	return err
 }
 
-func sendVenue(UserID int64, Lat float32, Lon float32, Title string, Address string, EncounterID string) {
+func sendVenue(UserID int64, Lat float32, Lon float32, Title string, Address string, EncounterID string) error {
 	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Venue{Location: telebot.Location{Lat: Lat, Lng: Lon}, Title: Title, Address: Address})
 	if err != nil {
 		log.Printf("❌ Failed to send venue: %v", err)
@@ -471,9 +473,10 @@ func sendVenue(UserID int64, Lat float32, Lon float32, Title string, Address str
 		// Store message ID for cleanup
 		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
 	}
+	return err
 }
 
-func sendMessage(UserID int64, Text string, EncounterID string) {
+func sendMessage(UserID int64, Text string, EncounterID string) error {
 	message, err := bot.Send(&telebot.User{ID: UserID}, Text, telebot.ModeMarkdown)
 	if err != nil {
 		log.Printf("❌ Failed to send message: %v", err)
@@ -482,6 +485,7 @@ func sendMessage(UserID int64, Text string, EncounterID string) {
 		// Store message ID for cleanup
 		dbConfig.Create(&Message{ChatID: UserID, MessageID: message.ID, EncounterID: EncounterID})
 	}
+	return err
 }
 
 func sendEncounterNotification(user User, encounter EncounterData) {
