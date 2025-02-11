@@ -107,6 +107,48 @@ type EncounterData struct {
 	IV                      *float32
 }
 
+type GymData struct {
+	ID                     string
+	Lat                    float64
+	Lon                    float64
+	Name                   *string
+	Url                    *string
+	LastModifiedTimestamp  *int
+	RaidEndTimestamp       *int
+	RaidSpawnTimestamp     *int
+	RaidBattleTimestamp    *int
+	Updated                int64
+	RaidPokemonID          *int
+	GuardingPokemonID      *int
+	GuardingPokemonDisplay *string
+	AvailableSlots         *int
+	TeamID                 *int
+	RaidLevel              *int
+	Enabled                *int
+	ExRaidEligible         *int
+	InBattle               *int
+	RaidPokemonMove1       *int
+	RaidPokemonMove2       *int
+	RaidPokemonForm        *int
+	RaidPokemonAlignment   *int
+	RaidPokemonCp          *int
+	RaidIsExclusive        *int
+	CellID                 *int
+	Deleted                bool
+	TotalCp                *int
+	FirstSeenTimestamp     int64
+	RaidPokemonGender      *int
+	SponsorID              *int
+	PartnerID              *string
+	RaidPokemonCostume     *int
+	RaidPokemonEvolution   *int
+	ArScanEligible         *int
+	PowerUpLevel           *int
+	PowerUpPoints          *int
+	PowerUpEndTimestamp    *int
+	Description            *string
+}
+
 type MasterFile struct {
 	Pokemon          map[string]Pokemon `json:"pokemon"`
 	Types            map[string]string  `json:"types"`
@@ -225,6 +267,10 @@ var (
 
 func (EncounterData) TableName() string {
 	return "pokemon"
+}
+
+func (GymData) TableName() string {
+	return "gym"
 }
 
 func boolToEmoji(value bool) string {
@@ -842,6 +888,56 @@ func setupBotHandlers() {
 		user := getUserPreferences(userID)
 
 		return c.Send(fmt.Sprintf(getTranslation("✅ Unsubscribed from %s alerts", language), getPokemonName(pokemonID, user.Language)))
+	})
+
+	bot.Handle("/wo", func(c telebot.Context) error {
+		return bot.Trigger("/locate", c)
+	})
+
+	bot.Handle("/locate", func(c telebot.Context) error {
+		userID := getUserID(c)
+		language := users.All[userID].Language
+
+		args := c.Args()
+		if len(args) < 1 {
+			return c.Send(getTranslation("ℹ️ Usage: /locate <gym-name>", language))
+		}
+
+		gymName := strings.Join(args, " ")
+
+		var gyms []GymData
+		dbScanner.Where("lower(name) LIKE ?", "%"+strings.ToLower(gymName)+"%").Find(&gyms)
+		if len(gyms) == 0 {
+			return c.Send(fmt.Sprintf(getTranslation("❌ Can't find gym: %s", language), gymName))
+		} else if len(gyms) > 1 {
+			text := fmt.Sprintf(getTranslation("🔍 Found %d gyms matching your search:", language), len(gyms))
+			inlineKeyboard := [][]telebot.InlineButton{}
+			for _, gym := range gyms {
+				btnGym := telebot.InlineButton{
+					Text:   *gym.Name,
+					Unique: "locate_gym",
+					Data:   gym.ID,
+				}
+				inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnGym})
+			}
+			btnClose := telebot.InlineButton{Text: getTranslation("Close", language), Unique: "close"}
+			inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnClose})
+
+			return c.Send(text, &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}, telebot.ModeMarkdown)
+		}
+		gym := gyms[0]
+		return c.Send(&telebot.Venue{Location: telebot.Location{Lat: float32(gym.Lat), Lng: float32(gym.Lon)}, Title: *gym.Name, Address: *gym.Description})
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "locate_gym"}, func(c telebot.Context) error {
+		gymID := c.Callback().Data
+		if gymID == "" {
+			return c.Send("❌ Invalid Gym ID")
+		}
+		var gym GymData
+		dbScanner.First(&gym, gymID)
+		c.Delete()
+		return c.Send(&telebot.Venue{Location: telebot.Location{Lat: float32(gym.Lat), Lng: float32(gym.Lon)}, Title: *gym.Name, Address: *gym.Description})
 	})
 
 	bot.Handle(telebot.OnLocation, func(c telebot.Context) error {
