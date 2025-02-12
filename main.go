@@ -192,6 +192,21 @@ type Weather struct {
 	Types []int  `json:"types"`
 }
 
+type PokemonEntry struct {
+	Pokemon    int     `json:"pokemon"`
+	Form       int     `json:"form,omitempty"`
+	Cap        float64 `json:"cap,omitempty"`
+	Value      float64 `json:"value,omitempty"`
+	Level      float64 `json:"level"`
+	CP         int     `json:"cp,omitempty"`
+	Percentage float64 `json:"percentage"`
+	Rank       int16   `json:"rank"`
+	Capped     bool    `json:"capped,omitempty"`
+	Evolution  int     `json:"evolution,omitempty"`
+}
+
+type PVP map[string][]PokemonEntry
+
 var (
 	dbConfig            *gorm.DB // Stores user subscriptions
 	dbScanner           *gorm.DB // Fetches Pokémon encounters
@@ -1411,6 +1426,23 @@ func processEncounters() {
 func filterAndSendEncounters(users FilteredUsers, encounters []EncounterData) {
 	// Match encounters with subscriptions
 	for _, encounter := range encounters {
+
+		// If PVP data is present, attempt to decode it.
+		if encounter.PVP != nil && *encounter.PVP != "" {
+			var pvpData PVP
+			if err := json.Unmarshal([]byte(*encounter.PVP), &pvpData); err != nil {
+				log.Printf("❌ Failed to decode PVP data for encounter %s: %v", encounter.ID, err)
+			} else {
+				for league, entries := range pvpData {
+					for _, entry := range entries {
+						if entry.Rank <= 10 {
+							log.Printf("🎉 Top 10 %s league encounter - Pokemon: %d, CP: %d, Rank: %d", league, entry.Pokemon, entry.CP, entry.Rank)
+						}
+					}
+				}
+			}
+		}
+
 		// Check for 100% IV Pokémon
 		if *encounter.IV == 100 {
 			for _, user := range users.HundoIV {
