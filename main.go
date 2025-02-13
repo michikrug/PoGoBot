@@ -669,6 +669,25 @@ func sendEncounterNotification(user User, encounter EncounterData) {
 			getMoveName(*encounter.Move2, user.Language)))
 	}
 
+	if encounter.PVPData != nil {
+		for league, entries := range encounter.PVPData {
+			// Capitalize the league name
+			leagueName := strings.ToUpper(string(league[0])) + league[1:]
+			for _, entry := range entries {
+				if entry.Rank < 4 {
+					notificationText.WriteString("\n" +
+						getTranslation(fmt.Sprintf("🏅 *%s League* Rank", leagueName), user.Language) +
+						fmt.Sprintf(" %d %s L%.1f %.2f%%\n",
+							entry.Rank,
+							getPokemonName(entry.Pokemon, user.Language),
+							entry.Level,
+							entry.Percentage,
+						))
+				}
+			}
+		}
+	}
+
 	if !user.OnlyMap {
 		sendMessage(user.ID, notificationTitle+"\n"+notificationText.String(), encounter.ID)
 	} else {
@@ -1466,13 +1485,13 @@ func filterAndSendEncounters(users FilteredUsers, encounters []EncounterData) {
 			if err := json.Unmarshal([]byte(*encounter.PVP), &pvpData); err != nil {
 				log.Printf("❌ Failed to decode PVP data for encounter %s: %v", encounter.ID, err)
 			} else {
-				encounter.PVPData = pvpData
 				for league, entries := range pvpData {
 					for _, entry := range entries {
 						// Only consider top 3 rankings.
 						if entry.Rank >= 4 {
 							continue
 						}
+						encounter.PVPData = pvpData
 						log.Printf("🎉 Top 3 %s league encounter - Pokemon: %s, CP: %d, Rank: %d, Percentage: %f, Level: %f",
 							league, getPokemonName(entry.Pokemon, "en"), entry.CP, entry.Rank, entry.Percentage, entry.Level)
 						for _, user := range users.TopPVP {
