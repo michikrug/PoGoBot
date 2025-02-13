@@ -1435,8 +1435,8 @@ func filterAndSendEncounters(users FilteredUsers, encounters []EncounterData) {
 			} else {
 				for league, entries := range pvpData {
 					for _, entry := range entries {
-						if entry.Percentage > 99 {
-							log.Printf("🎉 Top %s league encounter - Pokemon: %s, CP: %d, Rank: %d, Percentage: %f, Level: %f", league, getPokemonName(entry.Pokemon, "en"), entry.CP, entry.Rank, entry.Percentage, entry.Level)
+						if entry.Rank <= 10 {
+							log.Printf("🎉 Top 10 %s league encounter - Pokemon: %s, CP: %d, Rank: %d, Percentage: %f, Level: %f", league, getPokemonName(entry.Pokemon, "en"), entry.CP, entry.Rank, entry.Percentage, entry.Level)
 						}
 					}
 				}
