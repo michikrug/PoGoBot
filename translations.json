@@ -4740,7 +4740,7 @@
         "🏅 *Little League Rank": "🏅 *Mini-Cup Rang",
         "🏅 *Great League Rank": "🏅 *Superliga Rang",
         "🏅 *Ultra League Rank": "🏅 *Hyperliga Rang",
-        " %d* %s L%.1f %dCP\n": " %d* %s L%.1f %dWP\n",
+        " %d* %s %dCP L%.1f\n": " %d* %s %dWP L%.1f\n",
         "⚙️ *Your Settings:*": "⚙️ *Deine Einstellungen:*",
         "🌍 *Language:* %s": "🌍 *Sprache:* %s",
         "📍 *Location:* %.5f, %.5f": "📍 *Standort:* %.5f, %.5f",
