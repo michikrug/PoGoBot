@@ -35,6 +35,7 @@ type User struct {
 	MaxDistance int     `gorm:"not null;default:0;type:mediumint(6)"`
 	HundoIV     bool    `gorm:"not null;default:false"`
 	ZeroIV      bool    `gorm:"not null;default:false"`
+	TopPVP      bool    `gorm:"not null;default:false"`
 	MinIV       int     `gorm:"not null;default:0;type:tinyint(3)"`
 	MinLevel    int     `gorm:"not null;default:0;type:tinyint(2)"`
 }
@@ -43,6 +44,7 @@ type FilteredUsers struct {
 	All      map[int64]User
 	HundoIV  []User
 	ZeroIV   []User
+	TopPVP   []User
 	Channels []User
 }
 
@@ -105,6 +107,7 @@ type EncounterData struct {
 	PVP                     *string
 	IsEvent                 int
 	IV                      *float32
+	PVPData                 PVP `gorm:"-"`
 }
 
 type GymData struct {
@@ -459,6 +462,7 @@ func getUsersByFilters() {
 		All:      make(map[int64]User),
 		HundoIV:  []User{},
 		ZeroIV:   []User{},
+		TopPVP:   []User{},
 		Channels: []User{},
 	}
 
@@ -477,6 +481,9 @@ func getUsersByFilters() {
 			}
 			if user.ZeroIV {
 				users.ZeroIV = append(users.ZeroIV, user)
+			}
+			if user.TopPVP {
+				users.TopPVP = append(users.TopPVP, user)
 			}
 			if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
 				users.Channels = append(users.Channels, user)
@@ -699,6 +706,11 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 		zeroText = getTranslation("🚫 Enable 0% IV Notifications", user.Language)
 	}
 	btnToogleZeroIV := telebot.InlineButton{Text: zeroText, Unique: "toggle_zero_iv"}
+	pvpText := getTranslation("🏅 Disable Top PVP Notifications", user.Language)
+	if !user.TopPVP {
+		pvpText = getTranslation("🏅 Enable Top PVP Notifications", user.Language)
+	}
+	btnToogleTopPVP := telebot.InlineButton{Text: pvpText, Unique: "toggle_top_pvp"}
 	cleanupText := getTranslation("🗑️ Keep Expired Notifications", user.Language)
 	if !user.Cleanup {
 		cleanupText = getTranslation("🗑️ Remove Expired Notifications", user.Language)
@@ -719,13 +731,14 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 			getTranslation("🎭 *Pokémon Stickers:* %s", user.Language)+"\n"+
 			getTranslation("💯 *100%% IV Notifications:* %s", user.Language)+"\n"+
 			getTranslation("🚫 *0%% IV Notifications:* %s", user.Language)+"\n"+
+			getTranslation("🏅 *Top PVP Notifications:* %s", user.Language)+"\n"+
 			getTranslation("🗑️ *Cleanup Expired Notifications:* %s", user.Language)+"\n\n"+
 			getTranslation("Use the buttons below to update the settings", user.Language),
 		user.Language, user.Latitude, user.Longitude,
 		user.MaxDistance, user.MinIV, user.MinLevel,
 		boolToEmoji(user.Notify), boolToEmoji(user.Stickers),
 		boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV),
-		boolToEmoji(user.Cleanup),
+		boolToEmoji(user.TopPVP), boolToEmoji(user.Cleanup),
 	)
 
 	if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
@@ -743,12 +756,13 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 				getTranslation("🎭 *Pokémon Stickers:* %s", user.Language)+"\n"+
 				getTranslation("💯 *100%% IV Notifications:* %s", user.Language)+"\n"+
 				getTranslation("🚫 *0%% IV Notifications:* %s", user.Language)+"\n"+
+				getTranslation("🏅 *Top PVP Notifications:* %s", user.Language)+"\n"+
 				getTranslation("🗑️ *Cleanup Expired Notifications:* %s", user.Language)+"\n\n"+
 				getTranslation("Use the buttons below to update the settings", user.Language),
 			user.ID, chat.Title, user.Language, user.MinIV, user.MinLevel,
 			boolToEmoji(user.Notify), boolToEmoji(user.Stickers),
 			boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV),
-			boolToEmoji(user.Cleanup),
+			boolToEmoji(user.TopPVP), boolToEmoji(user.Cleanup),
 		)
 	}
 
@@ -765,6 +779,7 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 		{btnToggleStickers},
 		{btnToogleHundoIV},
 		{btnToogleZeroIV},
+		{btnToogleTopPVP},
 		{btnToggleCleanup},
 		{btnClose},
 	}
@@ -1077,6 +1092,14 @@ func setupBotHandlers() {
 		user := getUserPreferences(getUserID(c))
 		user.ZeroIV = !user.ZeroIV
 		updateUserPreference(user.ID, "ZeroIV", user.ZeroIV)
+		settingsMessage, replyMarkup := buildSettings(user)
+		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
+	})
+
+	bot.Handle(&telebot.InlineButton{Unique: "toggle_top_pvp"}, func(c telebot.Context) error {
+		user := getUserPreferences(getUserID(c))
+		user.TopPVP = !user.TopPVP
+		updateUserPreference(user.ID, "TopPVP", user.TopPVP)
 		settingsMessage, replyMarkup := buildSettings(user)
 		return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 	})
@@ -1423,67 +1446,83 @@ func processEncounters() {
 	}
 }
 
+// Helper function to check if the encounter is within the user's allowed distance.
+// Returns true if the check passes or if no distance filtering is set.
+func withinDistance(user User, encounter EncounterData, maxDistance int) bool {
+	if user.Latitude == 0 || user.Longitude == 0 || maxDistance == 0 {
+		return true
+	}
+	distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
+	return distance <= float64(maxDistance)
+}
+
 func filterAndSendEncounters(users FilteredUsers, encounters []EncounterData) {
 	// Match encounters with subscriptions
 	for _, encounter := range encounters {
 
-		// If PVP data is present, attempt to decode it.
+		// Process PVP data if available.
 		if encounter.PVP != nil && *encounter.PVP != "" {
 			var pvpData PVP
 			if err := json.Unmarshal([]byte(*encounter.PVP), &pvpData); err != nil {
 				log.Printf("❌ Failed to decode PVP data for encounter %s: %v", encounter.ID, err)
 			} else {
+				encounter.PVPData = pvpData
 				for league, entries := range pvpData {
 					for _, entry := range entries {
-						if entry.Rank < 4 {
-							log.Printf("🎉 Top 3 %s league encounter - Pokemon: %s, CP: %d, Rank: %d, Percentage: %f, Level: %f", league, getPokemonName(entry.Pokemon, "en"), entry.CP, entry.Rank, entry.Percentage, entry.Level)
+						// Only consider top 3 rankings.
+						if entry.Rank >= 4 {
+							continue
+						}
+						log.Printf("🎉 Top 3 %s league encounter - Pokemon: %s, CP: %d, Rank: %d, Percentage: %f, Level: %f",
+							league, getPokemonName(entry.Pokemon, "en"), entry.CP, entry.Rank, entry.Percentage, entry.Level)
+						for _, user := range users.TopPVP {
+							if withinDistance(user, encounter, user.MaxDistance) {
+								sendEncounterNotification(user, encounter)
+							}
 						}
 					}
 				}
 			}
 		}
 
-		// Check for 100% IV Pokémon
-		if *encounter.IV == 100 {
+		// Process 100% IV Pokémon notifications.
+		if encounter.IV != nil && *encounter.IV == 100 {
 			for _, user := range users.HundoIV {
-				if user.Latitude != 0 && user.Longitude != 0 && user.MaxDistance > 0 {
-					distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-					if distance > float64(user.MaxDistance) {
-						continue
-					}
+				if withinDistance(user, encounter, user.MaxDistance) {
+					sendEncounterNotification(user, encounter)
 				}
-				sendEncounterNotification(user, encounter)
 			}
 		}
-		// Check for 0% IV Pokémon
-		if *encounter.IV == 0 {
+
+		// Process 0% IV Pokémon notifications.
+		if encounter.IV != nil && *encounter.IV == 0 {
 			for _, user := range users.ZeroIV {
-				if user.Latitude != 0 && user.Longitude != 0 && user.MaxDistance > 0 {
-					distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-					if distance > float64(user.MaxDistance) {
-						continue
-					}
+				if withinDistance(user, encounter, user.MaxDistance) {
+					sendEncounterNotification(user, encounter)
 				}
-				sendEncounterNotification(user, encounter)
 			}
 		}
-		// Check for Channel Users
+
+		// Process channel user notifications.
 		for _, user := range users.Channels {
+			// If both thresholds are zero, skip.
 			if user.MinIV == 0 && user.MinLevel == 0 {
 				continue
 			}
-			if user.MinLevel == 0 && *encounter.IV >= float32(user.MinIV) ||
-				user.MinIV == 0 && *encounter.Level >= user.MinLevel ||
-				*encounter.IV >= float32(user.MinIV) && *encounter.Level >= user.MinLevel {
+			ivOk := (user.MinLevel == 0 && *encounter.IV >= float32(user.MinIV)) ||
+				(user.MinIV == 0 && *encounter.Level >= user.MinLevel) ||
+				(*encounter.IV >= float32(user.MinIV) && *encounter.Level >= user.MinLevel)
+			if ivOk {
 				sendEncounterNotification(user, encounter)
 			}
 		}
-		// Check for subscribed Pokémon
+
+		// Process subscribed Pokémon notifications.
 		if subs, exists := activeSubscriptions[encounter.PokemonID]; exists {
 			for _, sub := range subs {
 				user := users.All[sub.UserID]
 
-				// Determine effective subscription limits by falling back to user defaults if needed
+				// Determine effective subscription limits (fallback to user defaults).
 				effectiveMinIV := sub.MinIV
 				if effectiveMinIV == 0 {
 					effectiveMinIV = user.MinIV
@@ -1497,25 +1536,15 @@ func filterAndSendEncounters(users FilteredUsers, encounters []EncounterData) {
 					effectiveMaxDistance = user.MaxDistance
 				}
 
-				// Validate encounter IV against required minimum IV
+				// Validate encounter IV and level.
 				if effectiveMinIV > 0 && *encounter.IV < float32(effectiveMinIV) {
-					// log.Printf("🔍 Skipping encounter: IV %.2f is below required %d%%", *encounter.IV, effectiveMinIV)
 					continue
 				}
-
-				// Validate encounter level against required minimum level
 				if effectiveMinLevel > 0 && *encounter.Level < effectiveMinLevel {
-					// log.Printf("🔍 Skipping encounter: Level %d is below required %d", *encounter.Level, effectiveMinLevel)
 					continue
 				}
-
-				// If user's location is set, check if the encounter is within allowed distance
-				if user.Latitude != 0 && user.Longitude != 0 && effectiveMaxDistance > 0 {
-					distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-					if distance > float64(effectiveMaxDistance) {
-						// log.Printf("🔍 Skipping encounter: Distance %.0fm exceeds allowed %dm", distance, effectiveMaxDistance)
-						continue
-					}
+				if !withinDistance(user, encounter, effectiveMaxDistance) {
+					continue
 				}
 				sendEncounterNotification(user, encounter)
 			}
