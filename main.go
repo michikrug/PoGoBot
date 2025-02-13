@@ -676,12 +676,12 @@ func sendEncounterNotification(user User, encounter EncounterData) {
 			for _, entry := range entries {
 				if entry.Rank < 4 {
 					notificationText.WriteString("\n" +
-						getTranslation(fmt.Sprintf("🏅 *%s League* Rank", leagueName), user.Language) +
-						fmt.Sprintf(" %d %s L%.1f %.2f%%\n",
+						getTranslation(fmt.Sprintf("🏅 *%s League Rank", leagueName), user.Language) +
+						fmt.Sprintf(getTranslation(" %d* %s L%.1f %dCP\n", user.Language),
 							entry.Rank,
 							getPokemonName(entry.Pokemon, user.Language),
 							entry.Level,
-							entry.Percentage,
+							entry.CP,
 						))
 				}
 			}
