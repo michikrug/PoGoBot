@@ -146,9 +146,9 @@ func initScannerDatabase() {
 	var err error
 	scannerDB, err = gorm.Open(mysql.Open(scannerDSN), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("❌ Failed to connect to encounter database: %v", err)
+		log.Fatalf("❌ Failed to connect to scanner database: %v", err)
 	}
-	log.Println("✅ Connected to encounter database")
+	log.Println("✅ Connected to scanner database")
 }
 
 // initBot initializes the Telegram bot

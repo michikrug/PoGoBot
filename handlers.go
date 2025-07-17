@@ -368,9 +368,11 @@ func handleLocationMessage(c telebot.Context) error {
 
 // handleLocateGymCallback handles the inline button callback for gym selection
 func handleLocateGymCallback(c telebot.Context) error {
+	userID := getUserID(c)
+	language := userCache.All[userID].Language
 	gymID := c.Callback().Data
 	if gymID == "" {
-		return c.Send("❌ Invalid Gym ID")
+		return c.Send(getTranslation("❌ Invalid Gym ID", language))
 	}
 	gym := getGymByID(gymID)
 	c.Delete()
@@ -657,12 +659,12 @@ func handleAddSubscriptionPokemon(c telebot.Context) error {
 
 	pokemonID, err := getPokemonID(pokemonName)
 	if err != nil {
-		return c.Send(fmt.Sprintf("❌ Can't find Pokedex # for Pokémon: %s", pokemonName))
+		return c.Send(fmt.Sprintf(getTranslation("❌ Can't find Pokedex # for Pokémon: %s", language), pokemonName))
 	}
 
 	userConversationStates[userID] = fmt.Sprintf("add_subscription_iv_%d", pokemonID)
 
-	return c.Send(fmt.Sprintf("📣 Subscribing to %s alerts. Please enter the minimal IV percentage (0-100):",
+	return c.Send(fmt.Sprintf(getTranslation("📣 Subscribing to %s alerts. Please enter the minimal IV percentage (0-100):", language),
 		getPokemonName(pokemonID, language),
 	))
 }
@@ -678,7 +680,7 @@ func handleAddSubscriptionIV(c telebot.Context, pokemonID int) error {
 
 	userConversationStates[userID] = fmt.Sprintf("add_subscription_level_%d_%d", pokemonID, minIV)
 
-	return c.Send(fmt.Sprintf("✨ Minimal IV set to %d%%. Please enter the minimal Pokémon level (0-40):", minIV))
+	return c.Send(fmt.Sprintf(getTranslation("✨ Minimal IV set to %d%%. Please enter the minimal Pokémon level (0-40):", language), minIV))
 }
 
 func handleAddSubscriptionLevel(c telebot.Context, pokemonID, minIV int) error {
@@ -692,7 +694,7 @@ func handleAddSubscriptionLevel(c telebot.Context, pokemonID, minIV int) error {
 
 	userConversationStates[userID] = fmt.Sprintf("add_subscription_distance_%d_%d_%d", pokemonID, minIV, minLevel)
 
-	return c.Send(fmt.Sprintf("🔢 Minimal level set to %d. Please enter the maximal distance (in m):", minLevel))
+	return c.Send(fmt.Sprintf(getTranslation("🔢 Minimal level set to %d. Please enter the maximal distance (in m):", language), minLevel))
 }
 
 func handleAddSubscriptionDistance(c telebot.Context, pokemonID, minIV, minLevel int) error {
