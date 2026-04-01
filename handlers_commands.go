@@ -14,8 +14,8 @@ import (
 func getUserID(c telebot.Context) int64 {
 	userID := c.Sender().ID
 	if impersonatedID, ok := botAdmins[userID]; ok && impersonatedID != userID {
-		language := userCache.All[userID].Language
-		c.Send(getTranslation("🔒 You are impersonating another user", language))
+		tr := newTranslator(userCache.All[userID].Language)
+		c.Send(tr.T("🔒 You are impersonating another user"))
 		return impersonatedID
 	}
 	return userID
@@ -32,67 +32,68 @@ func toggleUserPreference(c telebot.Context, field string, toggle func(user *Use
 
 // buildSettings constructs the settings message and inline keyboard for a user.
 func buildSettings(user User) (string, *telebot.ReplyMarkup) {
-	btnChangeLanguage := telebot.InlineButton{Text: getTranslation("🌍 Change Language", user.Language), Unique: "change_lang"}
-	btnUpdateLocation := telebot.InlineButton{Text: getTranslation("📍 Update Location", user.Language), Unique: "update_location"}
-	btnSetDistance := telebot.InlineButton{Text: getTranslation("📏 Set Maximal Distance", user.Language), Unique: "set_distance"}
-	btnSetMinIV := telebot.InlineButton{Text: getTranslation("✨ Set Minimal IV", user.Language), Unique: "set_min_iv"}
-	btnSetMinLevel := telebot.InlineButton{Text: getTranslation("🔢 Set Minimal Level", user.Language), Unique: "set_min_level"}
-	btnAddSubscription := telebot.InlineButton{Text: getTranslation("📣 Add Pokémon Subscription", user.Language), Unique: "add_subscription"}
-	btnListSubscriptions := telebot.InlineButton{Text: getTranslation("📋 List all Pokémon Subscriptions", user.Language), Unique: "list_subscriptions"}
-	btnClearSubscriptions := telebot.InlineButton{Text: getTranslation("🗑️ Clear all Pokémon Subscriptions", user.Language), Unique: "clear_subscriptions"}
+	tr := newTranslator(user.Language)
+	btnChangeLanguage := telebot.InlineButton{Text: tr.T("🌍 Change Language"), Unique: "change_lang"}
+	btnUpdateLocation := telebot.InlineButton{Text: tr.T("📍 Update Location"), Unique: "update_location"}
+	btnSetDistance := telebot.InlineButton{Text: tr.T("📏 Set Maximal Distance"), Unique: "set_distance"}
+	btnSetMinIV := telebot.InlineButton{Text: tr.T("✨ Set Minimal IV"), Unique: "set_min_iv"}
+	btnSetMinLevel := telebot.InlineButton{Text: tr.T("🔢 Set Minimal Level"), Unique: "set_min_level"}
+	btnAddSubscription := telebot.InlineButton{Text: tr.T("📣 Add Pokémon Subscription"), Unique: "add_subscription"}
+	btnListSubscriptions := telebot.InlineButton{Text: tr.T("📋 List all Pokémon Subscriptions"), Unique: "list_subscriptions"}
+	btnClearSubscriptions := telebot.InlineButton{Text: tr.T("🗑️ Clear all Pokémon Subscriptions"), Unique: "clear_subscriptions"}
 
-	notificationsText := getTranslation("🔔 Disable all Notifications", user.Language)
+	notificationsText := tr.T("🔔 Disable all Notifications")
 	if !user.Notify {
-		notificationsText = getTranslation("🔕 Enable all Notifications", user.Language)
+		notificationsText = tr.T("🔕 Enable all Notifications")
 	}
 	btnToggleNotifications := telebot.InlineButton{Text: notificationsText, Unique: "toggle_notifications"}
 
-	stickersText := getTranslation("🎭 Do not show Pokémon Stickers", user.Language)
+	stickersText := tr.T("🎭 Do not show Pokémon Stickers")
 	if !user.Stickers {
-		stickersText = getTranslation("🎭 Show Pokémon Stickers", user.Language)
+		stickersText = tr.T("🎭 Show Pokémon Stickers")
 	}
 	btnToggleStickers := telebot.InlineButton{Text: stickersText, Unique: "toggle_stickers"}
 
-	hundoText := getTranslation("💯 Disable 100% IV Notifications", user.Language)
+	hundoText := tr.T("💯 Disable 100% IV Notifications")
 	if !user.HundoIV {
-		hundoText = getTranslation("💯 Enable 100% IV Notifications", user.Language)
+		hundoText = tr.T("💯 Enable 100% IV Notifications")
 	}
 	btnToogleHundoIV := telebot.InlineButton{Text: hundoText, Unique: "toggle_hundo_iv"}
 
-	zeroText := getTranslation("🚫 Disable 0% IV Notifications", user.Language)
+	zeroText := tr.T("🚫 Disable 0% IV Notifications")
 	if !user.ZeroIV {
-		zeroText = getTranslation("🚫 Enable 0% IV Notifications", user.Language)
+		zeroText = tr.T("🚫 Enable 0% IV Notifications")
 	}
 	btnToogleZeroIV := telebot.InlineButton{Text: zeroText, Unique: "toggle_zero_iv"}
 
-	pvpText := getTranslation("🏅 Disable Top PVP Notifications", user.Language)
+	pvpText := tr.T("🏅 Disable Top PVP Notifications")
 	if !user.TopPVP {
-		pvpText = getTranslation("🏅 Enable Top PVP Notifications", user.Language)
+		pvpText = tr.T("🏅 Enable Top PVP Notifications")
 	}
 	btnToogleTopPVP := telebot.InlineButton{Text: pvpText, Unique: "toggle_top_pvp"}
 
-	cleanupText := getTranslation("🗑️ Keep Expired Notifications", user.Language)
+	cleanupText := tr.T("🗑️ Keep Expired Notifications")
 	if !user.Cleanup {
-		cleanupText = getTranslation("🗑️ Remove Expired Notifications", user.Language)
+		cleanupText = tr.T("🗑️ Remove Expired Notifications")
 	}
 	btnToggleCleanup := telebot.InlineButton{Text: cleanupText, Unique: "toggle_cleanup"}
-	btnClose := telebot.InlineButton{Text: getTranslation("Close", user.Language), Unique: "close"}
+	btnClose := telebot.InlineButton{Text: tr.T("Close"), Unique: "close"}
 
 	settingsMessage := fmt.Sprintf(
-		getTranslation("⚙️ *Your Settings:*", user.Language)+"\n"+
+		tr.T("⚙️ *Your Settings:*")+"\n"+
 			"----------------------------------------------\n"+
-			getTranslation("🌍 *Language:* %s", user.Language)+"\n"+
-			getTranslation("📍 *Location:* %.5f, %.5f", user.Language)+"\n"+
-			getTranslation("📏 *Maximal Distance:* %dm", user.Language)+"\n"+
-			getTranslation("✨ *Minimal IV:* %d%%", user.Language)+"\n"+
-			getTranslation("🔢 *Minimal Level:* %d", user.Language)+"\n"+
-			getTranslation("🔔 *Notifications:* %s", user.Language)+"\n"+
-			getTranslation("🎭 *Pokémon Stickers:* %s", user.Language)+"\n"+
-			getTranslation("💯 *100%% IV Notifications:* %s", user.Language)+"\n"+
-			getTranslation("🚫 *0%% IV Notifications:* %s", user.Language)+"\n"+
-			getTranslation("🏅 *Top PVP Notifications:* %s", user.Language)+"\n"+
-			getTranslation("🗑️ *Cleanup Expired Notifications:* %s", user.Language)+"\n\n"+
-			getTranslation("Use the buttons below to update the settings", user.Language),
+			tr.T("🌍 *Language:* %s")+"\n"+
+			tr.T("📍 *Location:* %.5f, %.5f")+"\n"+
+			tr.T("📏 *Maximal Distance:* %dm")+"\n"+
+			tr.T("✨ *Minimal IV:* %d%%")+"\n"+
+			tr.T("🔢 *Minimal Level:* %d")+"\n"+
+			tr.T("🔔 *Notifications:* %s")+"\n"+
+			tr.T("🎭 *Pokémon Stickers:* %s")+"\n"+
+			tr.T("💯 *100%% IV Notifications:* %s")+"\n"+
+			tr.T("🚫 *0%% IV Notifications:* %s")+"\n"+
+			tr.T("🏅 *Top PVP Notifications:* %s")+"\n"+
+			tr.T("🗑️ *Cleanup Expired Notifications:* %s")+"\n\n"+
+			tr.T("Use the buttons below to update the settings"),
 		user.Language, user.Latitude, user.Longitude,
 		user.MaxDistance, user.MinIV, user.MinLevel,
 		boolToEmoji(user.Notify), boolToEmoji(user.Stickers),
@@ -103,20 +104,20 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 	if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
 		chatInfo, _ := bot.ChatByID(user.ID)
 		settingsMessage = fmt.Sprintf(
-			getTranslation("⚙️ *Channel Settings:*", user.Language)+"\n"+
+			tr.T("⚙️ *Channel Settings:*")+"\n"+
 				"----------------------------------------------\n"+
-				getTranslation("#️⃣ *Channel ID:* %d", user.Language)+"\n"+
-				getTranslation("#️⃣ *Channel Name:* %s", user.Language)+"\n"+
-				getTranslation("🌍 *Language:* %s", user.Language)+"\n"+
-				getTranslation("✨ *Minimal IV:* %d%%", user.Language)+"\n"+
-				getTranslation("🔢 *Minimal Level:* %d", user.Language)+"\n"+
-				getTranslation("🔔 *Notifications:* %s", user.Language)+"\n"+
-				getTranslation("🎭 *Pokémon Stickers:* %s", user.Language)+"\n"+
-				getTranslation("💯 *100%% IV Notifications:* %s", user.Language)+"\n"+
-				getTranslation("🚫 *0%% IV Notifications:* %s", user.Language)+"\n"+
-				getTranslation("🏅 *Top PVP Notifications:* %s", user.Language)+"\n"+
-				getTranslation("🗑️ *Cleanup Expired Notifications:* %s", user.Language)+"\n\n"+
-				getTranslation("Use the buttons below to update the settings", user.Language),
+				tr.T("#️⃣ *Channel ID:* %d")+"\n"+
+				tr.T("#️⃣ *Channel Name:* %s")+"\n"+
+				tr.T("🌍 *Language:* %s")+"\n"+
+				tr.T("✨ *Minimal IV:* %d%%")+"\n"+
+				tr.T("🔢 *Minimal Level:* %d")+"\n"+
+				tr.T("🔔 *Notifications:* %s")+"\n"+
+				tr.T("🎭 *Pokémon Stickers:* %s")+"\n"+
+				tr.T("💯 *100%% IV Notifications:* %s")+"\n"+
+				tr.T("🚫 *0%% IV Notifications:* %s")+"\n"+
+				tr.T("🏅 *Top PVP Notifications:* %s")+"\n"+
+				tr.T("🗑️ *Cleanup Expired Notifications:* %s")+"\n\n"+
+				tr.T("Use the buttons below to update the settings"),
 			user.ID, chatInfo.Title, user.Language, user.MinIV, user.MinLevel,
 			boolToEmoji(user.Notify), boolToEmoji(user.Stickers),
 			boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV),
@@ -143,13 +144,13 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 	}
 
 	if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
-		btnReset := telebot.InlineButton{Text: getTranslation("🔄 Reset", user.Language), Unique: "reset"}
+		btnReset := telebot.InlineButton{Text: tr.T("🔄 Reset"), Unique: "reset"}
 		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnReset})
 	} else if _, ok := botAdmins[user.ID]; ok {
-		btnBroadcast := telebot.InlineButton{Text: getTranslation("📢 Broadcast Message", user.Language), Unique: "broadcast"}
-		btnListChannels := telebot.InlineButton{Text: getTranslation("📋 List Channels", user.Language), Unique: "list_channels"}
-		btnListUsers := telebot.InlineButton{Text: getTranslation("📋 List Users", user.Language), Unique: "list_users"}
-		btnImpersonateUser := telebot.InlineButton{Text: getTranslation("👤 Impersonate User", user.Language), Unique: "impersonate_user"}
+		btnBroadcast := telebot.InlineButton{Text: tr.T("📢 Broadcast Message"), Unique: "broadcast"}
+		btnListChannels := telebot.InlineButton{Text: tr.T("📋 List Channels"), Unique: "list_channels"}
+		btnListUsers := telebot.InlineButton{Text: tr.T("📋 List Users"), Unique: "list_users"}
+		btnImpersonateUser := telebot.InlineButton{Text: tr.T("👤 Impersonate User"), Unique: "impersonate_user"}
 		inlineKeyboard = append(inlineKeyboard,
 			[]telebot.InlineButton{btnBroadcast, btnImpersonateUser},
 			[]telebot.InlineButton{btnListUsers, btnListChannels},
@@ -170,12 +171,13 @@ func handleStart(c telebot.Context) error {
 	}
 	updateUserPreference(user.ID, "Language", detectedLanguage)
 
+	tr := newTranslator(detectedLanguage)
 	startMessage := fmt.Sprintf(
-		getTranslation("👋 Welcome to the PoGo Notification Bot!", detectedLanguage)+"\n\n"+
-			getTranslation("ℹ️ Language detected: *%s*", detectedLanguage)+"\n"+
-			getTranslation("ℹ️ Use /settings to update your preferences", detectedLanguage)+"\n"+
-			getTranslation("ℹ️ Use /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] to get notified about specific Pokémon", detectedLanguage)+"\n"+
-			getTranslation("ℹ️ Send me your 📍 location to enable distance-based notifications", detectedLanguage),
+		tr.T("👋 Welcome to the PoGo Notification Bot!")+"\n\n"+
+			tr.T("ℹ️ Language detected: *%s*")+"\n"+
+			tr.T("ℹ️ Use /settings to update your preferences")+"\n"+
+			tr.T("ℹ️ Use /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] to get notified about specific Pokémon")+"\n"+
+			tr.T("ℹ️ Send me your 📍 location to enable distance-based notifications"),
 		detectedLanguage,
 	)
 
@@ -183,13 +185,12 @@ func handleStart(c telebot.Context) error {
 }
 
 func handleHelp(c telebot.Context) error {
-	userID := c.Sender().ID
-	language := userCache.All[userID].Language
-	helpMessage := getTranslation("🤖 PoGo Notification Bot Commands:", language) + "\n\n" +
-		getTranslation("🔔 /settings - Update your preferences", language) + "\n" +
-		getTranslation("📋 /list - List your Pokémon subscriptions", language) + "\n" +
-		getTranslation("📣 /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] - Subscribe to Pokémon alerts", language) + "\n" +
-		getTranslation("🚫 /unsubscribe <pokemon-name> - Unsubscribe from Pokémon alerts", language)
+	tr := newTranslator(userCache.All[c.Sender().ID].Language)
+	helpMessage := tr.T("🤖 PoGo Notification Bot Commands:") + "\n\n" +
+		tr.T("🔔 /settings - Update your preferences") + "\n" +
+		tr.T("📋 /list - List your Pokémon subscriptions") + "\n" +
+		tr.T("📣 /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] - Subscribe to Pokémon alerts") + "\n" +
+		tr.T("🚫 /unsubscribe <pokemon-name> - Unsubscribe from Pokémon alerts")
 	return c.Send(helpMessage, telebot.ModeMarkdown)
 }
 
@@ -202,11 +203,11 @@ func handleSettings(c telebot.Context) error {
 
 func handleSubscribe(c telebot.Context) error {
 	userID := getUserID(c)
-	language := userCache.All[userID].Language
+	tr := newTranslator(userCache.All[userID].Language)
 
 	args := c.Args()
 	if len(args) < 1 {
-		return c.Send(getTranslation("ℹ️ Usage: /subscribe <pokemon-name> [min-iv] [min-level] [max-distance]", language))
+		return c.Send(tr.T("ℹ️ Usage: /subscribe <pokemon-name> [min-iv] [min-level] [max-distance]"))
 	}
 
 	// Collect trailing numeric args so Pokémon names with spaces (e.g. "Jangmo O") work.
@@ -224,7 +225,7 @@ func handleSubscribe(c telebot.Context) error {
 	pokemonName := strings.Join(nameParts, " ")
 	pokemonID, err := getPokemonID(pokemonName)
 	if err != nil {
-		return c.Send(fmt.Sprintf(getTranslation("❌ Can't find Pokedex # for Pokémon: %s", language), pokemonName))
+		return c.Send(tr.Tf("❌ Can't find Pokedex # for Pokémon: %s", pokemonName))
 	}
 
 	minIV := 0
@@ -233,26 +234,26 @@ func handleSubscribe(c telebot.Context) error {
 	if len(numericArgs) > 0 {
 		minIV, err = strconv.Atoi(numericArgs[0])
 		if err != nil || minIV < 0 || minIV > 100 {
-			return c.Send(getTranslation("❌ Invalid input! Please enter a valid IV percentage (0-100)", language))
+			return c.Send(tr.T("❌ Invalid input! Please enter a valid IV percentage (0-100)"))
 		}
 	}
 	if len(numericArgs) > 1 {
 		minLevel, err = strconv.Atoi(numericArgs[1])
 		if err != nil || minLevel < 0 || minLevel > 40 {
-			return c.Send(getTranslation("❌ Invalid input! Please enter a valid level (0-40)", language))
+			return c.Send(tr.T("❌ Invalid input! Please enter a valid level (0-40)"))
 		}
 	}
 	if len(numericArgs) > 2 {
 		maxDistance, err = strconv.Atoi(numericArgs[2])
 		if err != nil || maxDistance < 0 {
-			return c.Send(getTranslation("❌ Invalid input! Please enter a valid distance (in m)", language))
+			return c.Send(tr.T("❌ Invalid input! Please enter a valid distance (in m)"))
 		}
 	}
 
 	addSubscription(userID, pokemonID, minIV, minLevel, maxDistance)
 
 	user := getUserPreferences(userID)
-	return c.Send(fmt.Sprintf(getTranslation("✅ Subscribed to %s alerts (Min IV: %d%%, Min Level: %d, Max Distance: %dm)", language),
+	return c.Send(tr.Tf("✅ Subscribed to %s alerts (Min IV: %d%%, Min Level: %d, Max Distance: %dm)",
 		getPokemonName(pokemonID, user.Language),
 		minIV, minLevel, maxDistance,
 	))
@@ -260,14 +261,15 @@ func handleSubscribe(c telebot.Context) error {
 
 func handleList(c telebot.Context) error {
 	user := getUserPreferences(getUserID(c))
+	tr := newTranslator(user.Language)
 
 	var text strings.Builder
-	text.WriteString(getTranslation("📋 *Your Pokémon Subscriptions:*", user.Language) + "\n\n")
+	text.WriteString(tr.T("📋 *Your Pokémon Subscriptions:*") + "\n\n")
 	if user.HundoIV {
-		text.WriteString(fmt.Sprintf(getTranslation("🔹 *All* (Min IV: 100%%, Min Level: 0, Max Distance: %dm)", user.Language)+"\n", user.MaxDistance))
+		text.WriteString(tr.Tf("🔹 *All* (Min IV: 100%%, Min Level: 0, Max Distance: %dm)", user.MaxDistance) + "\n")
 	}
 	if user.ZeroIV {
-		text.WriteString(fmt.Sprintf(getTranslation("🔹 *All* (Max IV: 0%%, Min Level: 0, Max Distance: %dm", user.Language)+"\n", user.MaxDistance))
+		text.WriteString(tr.Tf("🔹 *All* (Max IV: 0%%, Min Level: 0, Max Distance: %dm", user.MaxDistance) + "\n")
 	}
 	c.Send(text.String(), telebot.ModeMarkdown)
 	text.Reset()
@@ -275,14 +277,14 @@ func handleList(c telebot.Context) error {
 	subscriptions := getUserSubscriptions(user.ID)
 
 	if len(subscriptions) == 0 {
-		return c.Send(getTranslation("🔹 You have no specific Pokémon subscriptions", user.Language))
+		return c.Send(tr.T("🔹 You have no specific Pokémon subscriptions"))
 	}
 
 	for _, subscription := range subscriptions {
-		entry := fmt.Sprintf(getTranslation("🔹 %s (Min IV: %d%%, Min Level: %d, Max Distance: %dm)", user.Language)+"\n",
+		entry := tr.Tf("🔹 %s (Min IV: %d%%, Min Level: %d, Max Distance: %dm)",
 			getPokemonName(subscription.PokemonID, user.Language),
 			subscription.MinIV, subscription.MinLevel, subscription.MaxDistance,
-		)
+		) + "\n"
 		if text.Len()+len(entry) > 4000 {
 			c.Send(text.String())
 			text.Reset()
@@ -294,42 +296,42 @@ func handleList(c telebot.Context) error {
 
 func handleUnsubscribe(c telebot.Context) error {
 	userID := getUserID(c)
-	language := userCache.All[userID].Language
+	tr := newTranslator(userCache.All[userID].Language)
 
 	args := c.Args()
 	if len(args) < 1 {
-		return c.Send(getTranslation("ℹ️ Usage: /unsubscribe <pokemon-name>", language))
+		return c.Send(tr.T("ℹ️ Usage: /unsubscribe <pokemon-name>"))
 	}
 
 	pokemonName := strings.Join(args, " ")
 	pokemonID, err := getPokemonID(pokemonName)
 	if err != nil {
-		return c.Send(fmt.Sprintf(getTranslation("❌ Can't find Pokedex # for Pokémon: %s", language), pokemonName))
+		return c.Send(tr.Tf("❌ Can't find Pokedex # for Pokémon: %s", pokemonName))
 	}
 
 	deleteSubscription(userID, pokemonID)
 	getActiveSubscriptions()
 
 	user := getUserPreferences(userID)
-	return c.Send(fmt.Sprintf(getTranslation("✅ Unsubscribed from %s alerts", language), getPokemonName(pokemonID, user.Language)))
+	return c.Send(tr.Tf("✅ Unsubscribed from %s alerts", getPokemonName(pokemonID, user.Language)))
 }
 
 func handleLocate(c telebot.Context) error {
 	userID := getUserID(c)
-	language := userCache.All[userID].Language
+	tr := newTranslator(userCache.All[userID].Language)
 
 	args := c.Args()
 	if len(args) < 1 {
-		return c.Send(getTranslation("ℹ️ Usage: /locate <gym-name>", language))
+		return c.Send(tr.T("ℹ️ Usage: /locate <gym-name>"))
 	}
 
 	gymName := strings.Join(args, " ")
 	gyms := searchGymsByName(gymName)
 
 	if len(gyms) == 0 {
-		return c.Send(fmt.Sprintf(getTranslation("❌ Can't find gym: %s", language), gymName))
+		return c.Send(tr.Tf("❌ Can't find gym: %s", gymName))
 	} else if len(gyms) > 1 {
-		responseText := fmt.Sprintf(getTranslation("🔍 Found %d gyms matching your search:", language), len(gyms))
+		responseText := tr.Tf("🔍 Found %d gyms matching your search:", len(gyms))
 		inlineKeyboard := [][]telebot.InlineButton{}
 		for _, gym := range gyms {
 			btnGym := telebot.InlineButton{
@@ -339,7 +341,7 @@ func handleLocate(c telebot.Context) error {
 			}
 			inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnGym})
 		}
-		btnClose := telebot.InlineButton{Text: getTranslation("Close", language), Unique: "close"}
+		btnClose := telebot.InlineButton{Text: tr.T("Close"), Unique: "close"}
 		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnClose})
 		return c.Send(responseText, &telebot.ReplyMarkup{InlineKeyboard: inlineKeyboard}, telebot.ModeMarkdown)
 	}
@@ -350,15 +352,15 @@ func handleLocate(c telebot.Context) error {
 
 func handleReset(c telebot.Context) error {
 	userID := c.Sender().ID
-	language := userCache.All[userID].Language
+	tr := newTranslator(userCache.All[userID].Language)
 	if _, ok := botAdmins[userID]; !ok {
-		return c.Send(getTranslation("❌ You are not authorized to use this command", language))
+		return c.Send(tr.T("❌ You are not authorized to use this command"))
 	}
 	if botAdmins[userID] == userID {
-		return c.Send(getTranslation("🔒 You are not impersonating another user", language), telebot.ModeMarkdown)
+		return c.Send(tr.T("🔒 You are not impersonating another user"), telebot.ModeMarkdown)
 	}
 	botAdmins[userID] = userID
-	return c.Send(getTranslation("🔒 You are now back as yourself", language))
+	return c.Send(tr.T("🔒 You are now back as yourself"))
 }
 
 // handleWoCommand is an alias for the /locate command.
@@ -368,13 +370,13 @@ func handleWoCommand(c telebot.Context) error {
 
 func handleLocationMessage(c telebot.Context) error {
 	userID := getUserID(c)
-	language := userCache.All[userID].Language
+	tr := newTranslator(userCache.All[userID].Language)
 	location := c.Message().Location
 
 	updateUserPreference(userID, "Latitude", location.Lat)
 	updateUserPreference(userID, "Longitude", location.Lng)
 
-	return c.Send(getTranslation("📍 Location updated! Your preferences will now consider this", language))
+	return c.Send(tr.T("📍 Location updated! Your preferences will now consider this"))
 }
 
 // ── Bot handler registration ──────────────────────────────────────────────────

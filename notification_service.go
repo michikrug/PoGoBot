@@ -394,10 +394,11 @@ func (s *NotificationService) processEncounters(users FilteredUsers, activeSubs 
 // but they have no side effects and are therefore straightforward to unit-test.
 
 func (s *NotificationService) generateNotificationTitle(user User, encounter EncounterData) string {
+	tr := newTranslator(user.Language)
 	name := getPokemonName(encounter.PokemonID, user.Language)
 	formSuffix := s.buildFormSuffix(encounter, user.Language)
 	genderEmoji := getGenderEmoji(encounter.Gender)
-	cpLabel := getTranslation("CP", user.Language)
+	cpLabel := tr.T("CP")
 	sizeEmoji := getSizeEmoji(encounter.Size)
 	weatherEmoji := getWeatherEmoji(encounter.Weather)
 
@@ -475,13 +476,14 @@ func (s *NotificationService) generateNotificationText(user User, encounter Enco
 	}
 
 	if encounter.PVPData != nil {
+		tr := newTranslator(user.Language)
 		for league, entries := range encounter.PVPData {
 			leagueName := strings.ToUpper(string(league[0])) + league[1:]
 			for _, entry := range entries {
 				if entry.Rank < 4 {
 					sb.WriteString("\n" +
-						getTranslation(fmt.Sprintf("🏅 *%s League Rank", leagueName), user.Language) +
-						fmt.Sprintf(getTranslation(" %d*: %s %dCP L%.1f", user.Language),
+						tr.T(fmt.Sprintf("🏅 *%s League Rank", leagueName)) +
+						tr.Tf(" %d*: %s %dCP L%.1f",
 							entry.Rank,
 							getPokemonName(entry.Pokemon, user.Language),
 							entry.CP,

@@ -36,6 +36,27 @@ func getMoveName(moveID int, language string) string {
 	return getTranslation("Unknown", language)
 }
 
+// Translator provides localised string helpers bound to a specific language.
+// Create one per handler via newTranslator(language) and use T / Tf instead of
+// calling getTranslation(key, language) everywhere.
+type Translator struct{ lang string }
+
+// newTranslator returns a Translator for the given language code.
+func newTranslator(language string) Translator {
+	return Translator{lang: language}
+}
+
+// T returns the translation for key.
+func (tr Translator) T(key string) string {
+	return getTranslation(key, tr.lang)
+}
+
+// Tf translates key and formats it with the supplied arguments, combining the
+// common fmt.Sprintf(getTranslation(key, lang), args...) pattern.
+func (tr Translator) Tf(key string, args ...any) string {
+	return fmt.Sprintf(tr.T(key), args...)
+}
+
 // getTranslation returns the translation for key in the requested language.
 // For English it is a no-op; for other languages it falls back to the key if
 // the translation is missing.
