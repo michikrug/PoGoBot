@@ -150,6 +150,10 @@ func sendMessage(UserID int64, Text string, EncounterID string) error {
 
 // sendEncounterNotification sends a complete notification for a Pokémon encounter to a user
 func sendEncounterNotification(user User, encounter EncounterData) {
+	// Skip users that are currently rate-limited.
+	if until, ok := userRateLimitedUntil[user.ID]; ok && time.Now().Before(until) {
+		return
+	}
 	// Check if encounter has already been notified
 	if _, exists := notificationCache[encounter.ID][user.ID]; exists {
 		log.Printf("🔕 Skipping notification for Pokémon #%d to %d (already sent)", encounter.PokemonID, user.ID)
