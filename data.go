@@ -69,6 +69,9 @@ func getUserPreferences(userID int64) User {
 func updateUserPreference(userID int64, field string, value interface{}) {
 	botDB.Model(&User{}).Where("id = ?", userID).Update(field, value)
 	getUsersByFilters()
+	if field == "notify" {
+		getActiveSubscriptions()
+	}
 }
 
 // Add a new subscription for a user
