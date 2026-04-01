@@ -164,7 +164,20 @@ func handleSubscribe(c telebot.Context) error {
 		return c.Send(getTranslation("ℹ️ Usage: /subscribe <pokemon-name> [min-iv] [min-level] [max-distance]", language))
 	}
 
-	pokemonName := args[0]
+	// Numeric args (min-iv, min-level, max-distance) are always at the end.
+	// Collect trailing numeric args so Pokémon names with spaces (e.g. "Jangmo O") work.
+	numericArgCount := 0
+	for i := len(args) - 1; i >= 1 && numericArgCount < 3; i-- {
+		if _, err := strconv.Atoi(args[i]); err == nil {
+			numericArgCount++
+		} else {
+			break
+		}
+	}
+	nameParts := args[:len(args)-numericArgCount]
+	numericArgs := args[len(args)-numericArgCount:]
+
+	pokemonName := strings.Join(nameParts, " ")
 	pokemonID, err := getPokemonID(pokemonName)
 	if err != nil {
 		return c.Send(fmt.Sprintf(getTranslation("❌ Can't find Pokedex # for Pokémon: %s", language), pokemonName))
@@ -173,20 +186,20 @@ func handleSubscribe(c telebot.Context) error {
 	minIV := int(0)
 	minLevel := int(0)
 	maxDistance := int(0)
-	if len(args) > 1 {
-		minIV, err = strconv.Atoi(args[1])
+	if len(numericArgs) > 0 {
+		minIV, err = strconv.Atoi(numericArgs[0])
 		if err != nil || minIV < 0 || minIV > 100 {
 			return c.Send(getTranslation("❌ Invalid input! Please enter a valid IV percentage (0-100)", language))
 		}
 	}
-	if len(args) > 2 {
-		minLevel, err = strconv.Atoi(args[2])
+	if len(numericArgs) > 1 {
+		minLevel, err = strconv.Atoi(numericArgs[1])
 		if err != nil || minLevel < 0 || minLevel > 40 {
 			return c.Send(getTranslation("❌ Invalid input! Please enter a valid level (0-40)", language))
 		}
 	}
-	if len(args) > 3 {
-		maxDistance, err = strconv.Atoi(args[3])
+	if len(numericArgs) > 2 {
+		maxDistance, err = strconv.Atoi(numericArgs[2])
 		if err != nil || maxDistance < 0 {
 			return c.Send(getTranslation("❌ Invalid input! Please enter a valid distance (in m)", language))
 		}
@@ -247,7 +260,7 @@ func handleUnsubscribe(c telebot.Context) error {
 		return c.Send(getTranslation("ℹ️ Usage: /unsubscribe <pokemon-name>", language))
 	}
 
-	pokemonName := args[0]
+	pokemonName := strings.Join(args, " ")
 	pokemonID, err := getPokemonID(pokemonName)
 	if err != nil {
 		return c.Send(fmt.Sprintf(getTranslation("❌ Can't find Pokedex # for Pokémon: %s", language), pokemonName))
