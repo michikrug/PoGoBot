@@ -127,15 +127,16 @@ func initBotDatabase() {
 	configDSN := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		appConfig.botDB.User, appConfig.botDB.Pass, appConfig.botDB.Host, appConfig.botDB.Name)
 
-	var err error
-	botDB, err = gorm.Open(mysql.Open(configDSN), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(configDSN), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to bot database: %v", err)
 	}
 	log.Println("✅ Connected to bot database")
 
 	// Auto-migrate database schema
-	botDB.AutoMigrate(&User{}, &Subscription{}, &Message{}, &Encounter{})
+	db.AutoMigrate(&User{}, &Subscription{}, &Message{}, &Encounter{})
+
+	botDB = &gormBotDB{db: db}
 }
 
 // initScannerDatabase initializes the scanner database connection
@@ -143,12 +144,13 @@ func initScannerDatabase() {
 	scannerDSN := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		appConfig.scannerDB.User, appConfig.scannerDB.Pass, appConfig.scannerDB.Host, appConfig.scannerDB.Name)
 
-	var err error
-	scannerDB, err = gorm.Open(mysql.Open(scannerDSN), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(scannerDSN), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to scanner database: %v", err)
 	}
 	log.Println("✅ Connected to scanner database")
+
+	scannerDB = &gormScannerDB{db: db}
 }
 
 // initBot initializes the Telegram bot
@@ -233,13 +235,12 @@ func initializeApplication() {
 
 	// Initialize state maps
 	userConversationStates = make(map[int64]string)
-	notificationCache = make(map[string]map[int64]struct{})
 
 	// Load static files
 	loadStaticFiles()
 	loadPokemonNameMappings()
 
-	// Initialize databases
+	// Initialize databases — sets botDB and scannerDB
 	initDatabases()
 	getUsersByFilters()
 	getActiveSubscriptions()
@@ -250,6 +251,20 @@ func initializeApplication() {
 	// Update global variables that depend on config
 	botAdmins = appConfig.Admins
 	timezone = appConfig.Timezone
+
+	// Wire up the global notification service
+	notificationService = newNotificationService(
+		botDB,
+		scannerDB,
+		&telegramBotSender{bot: bot},
+		&gameData,
+		translations,
+		timezone,
+		notificationsCounter,
+		messagesCounter,
+		cleanupCounter,
+		encounterGauge,
+	)
 
 	log.Println("✅ PoGoBot initialization completed successfully")
 }

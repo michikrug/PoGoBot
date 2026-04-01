@@ -16,7 +16,6 @@ var (
 	userConversationStates map[int64]string
 	userCache              FilteredUsers
 	activeSubscriptions    map[int][]Subscription
-	notificationCache      map[string]map[int64]struct{}
 )
 
 func main() {
