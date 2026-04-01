@@ -11,9 +11,82 @@ import (
 	"gopkg.in/telebot.v3"
 )
 
+// retryAfterSeconds extracts the retry-after duration from a Telegram 429 error.
+// Returns 0 if the error is not a flood/rate-limit error.
+func retryAfterSeconds(err error) int {
+	if err == nil {
+		return 0
+	}
+	s := err.Error()
+	// Telegram errors look like: "telegram: retry after 39270 (429)"
+	const prefix = "retry after "
+	idx := strings.Index(s, prefix)
+	if idx == -1 {
+		return 0
+	}
+	rest := s[idx+len(prefix):]
+	// rest may be "39270 (429)" – grab the first token
+	end := strings.IndexAny(rest, " (")
+	if end != -1 {
+		rest = rest[:end]
+	}
+	secs, parseErr := strconv.Atoi(rest)
+	if parseErr != nil {
+		return 0
+	}
+	return secs
+}
+
+// isPermanentTelegramError reports whether err is a permanent delivery failure
+// (user blocked the bot, chat deleted/not found, etc.) that will never succeed on retry.
+func isPermanentTelegramError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "chat not found") ||
+		strings.Contains(s, "bot was blocked by the user") ||
+		strings.Contains(s, "user is deactivated") ||
+		strings.Contains(s, "bot was kicked")
+}
+
+// maxFloodWaitSeconds is the longest we are willing to wait for a Telegram
+// flood-wait retry. Encounters expire quickly, so waiting longer than this
+// would make the notification irrelevant.
+const maxFloodWaitSeconds = 30
+
+// botSend wraps bot.Send with automatic retry on Telegram 429 flood-wait errors.
+// If the required wait exceeds maxFloodWaitSeconds the send is abandoned immediately.
+// Permanent errors (chat not found, bot blocked, etc.) disable the user's notifications.
+func botSend(userID int64, to telebot.Recipient, what interface{}, opts ...interface{}) (*telebot.Message, error) {
+	const maxRetries = 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		msg, err := bot.Send(to, what, opts...)
+		if err == nil {
+			return msg, nil
+		}
+		if isPermanentTelegramError(err) {
+			log.Printf("🚫 Permanent Telegram error for user %d, disabling notifications: %v", userID, err)
+			updateUserPreference(userID, "notify", false)
+			return nil, err
+		}
+		secs := retryAfterSeconds(err)
+		if secs <= 0 || attempt == maxRetries {
+			return nil, err
+		}
+		if secs > maxFloodWaitSeconds {
+			log.Printf("⏭️ Telegram rate limit too long (%ds > %ds), skipping message", secs, maxFloodWaitSeconds)
+			return nil, err
+		}
+		log.Printf("⏳ Telegram rate limit hit, retrying in %d seconds (attempt %d/%d)…", secs, attempt, maxRetries)
+		time.Sleep(time.Duration(secs) * time.Second)
+	}
+	return nil, fmt.Errorf("unreachable")
+}
+
 // sendSticker sends a Pokémon sticker to a user and stores the message for cleanup
 func sendSticker(UserID int64, URL string, EncounterID string) error {
-	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Sticker{File: telebot.FromURL(URL)}, &telebot.SendOptions{DisableNotification: true})
+	message, err := botSend(UserID, &telebot.User{ID: UserID}, &telebot.Sticker{File: telebot.FromURL(URL)}, &telebot.SendOptions{DisableNotification: true})
 	if err != nil {
 		log.Printf("❌ Failed to send sticker: %v", err)
 	} else {
@@ -26,7 +99,7 @@ func sendSticker(UserID int64, URL string, EncounterID string) error {
 
 // sendLocation sends a location to a user and stores the message for cleanup
 func sendLocation(UserID int64, Lat float32, Lon float32, EncounterID string) error {
-	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Location{Lat: Lat, Lng: Lon}, &telebot.SendOptions{DisableNotification: true})
+	message, err := botSend(UserID, &telebot.User{ID: UserID}, &telebot.Location{Lat: Lat, Lng: Lon}, &telebot.SendOptions{DisableNotification: true})
 	if err != nil {
 		log.Printf("❌ Failed to send location: %v", err)
 	} else {
@@ -39,7 +112,7 @@ func sendLocation(UserID int64, Lat float32, Lon float32, EncounterID string) er
 
 // sendVenue sends a venue (location with title and address) to a user and stores the message for cleanup
 func sendVenue(UserID int64, Lat float32, Lon float32, Title string, Address string, EncounterID string) error {
-	message, err := bot.Send(&telebot.User{ID: UserID}, &telebot.Venue{Location: telebot.Location{Lat: Lat, Lng: Lon}, Title: Title, Address: Address})
+	message, err := botSend(UserID, &telebot.User{ID: UserID}, &telebot.Venue{Location: telebot.Location{Lat: Lat, Lng: Lon}, Title: Title, Address: Address})
 	if err != nil {
 		log.Printf("❌ Failed to send venue: %v", err)
 	} else {
@@ -52,7 +125,7 @@ func sendVenue(UserID int64, Lat float32, Lon float32, Title string, Address str
 
 // sendMessage sends a text message to a user and stores the message for cleanup
 func sendMessage(UserID int64, Text string, EncounterID string) error {
-	message, err := bot.Send(&telebot.User{ID: UserID}, Text, telebot.ModeMarkdown)
+	message, err := botSend(UserID, &telebot.User{ID: UserID}, Text, telebot.ModeMarkdown)
 	if err != nil {
 		log.Printf("❌ Failed to send message: %v", err)
 	} else {
