@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"log"
 	"strings"
 	"time"
 
@@ -101,7 +103,23 @@ func (r *gormScannerDB) GetRecentEncounters() ([]EncounterData, error) {
 	lastCheck := time.Now().Unix() - 30
 	var encounters []EncounterData
 	err := r.db.Where("iv IS NOT NULL AND updated > ? AND expire_timestamp > ?", lastCheck, lastCheck).Find(&encounters).Error
-	return encounters, err
+	if err != nil {
+		return encounters, err
+	}
+	// Parse PVP JSON once at fetch time so the notification hot-path never
+	// needs to unmarshal the same string repeatedly.
+	for i := range encounters {
+		if encounters[i].PVP == nil || *encounters[i].PVP == "" {
+			continue
+		}
+		var pvpData PVP
+		if err := json.Unmarshal([]byte(*encounters[i].PVP), &pvpData); err != nil {
+			log.Printf("❌ Failed to decode PVP data for encounter %s: %v", encounters[i].ID, err)
+			continue
+		}
+		encounters[i].PVPData = pvpData
+	}
+	return encounters, nil
 }
 
 func (r *gormScannerDB) SearchGymsByName(name string) []GymData {

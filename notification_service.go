@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -258,24 +257,31 @@ func (s *NotificationService) sendEncounterNotification(user User, encounter Enc
 func (s *NotificationService) filterAndSendEncounters(users FilteredUsers, encounters []EncounterData, activeSubs map[int][]Subscription) {
 	for _, encounter := range encounters {
 
+		type distKey struct {
+			userID  int64
+			maxDist int
+		}
+		distCache := make(map[distKey]bool)
+		inRange := func(user User, maxDist int) bool {
+			key := distKey{user.ID, maxDist}
+			if v, ok := distCache[key]; ok {
+				return v
+			}
+			v := withinDistance(user, encounter, maxDist)
+			distCache[key] = v
+			return v
+		}
+
 		// PVP top-3 notifications.
-		if encounter.PVP != nil && *encounter.PVP != "" {
-			var pvpData PVP
-			if err := json.Unmarshal([]byte(*encounter.PVP), &pvpData); err != nil {
-				log.Printf("❌ Failed to decode PVP data for encounter %s: %v", encounter.ID, err)
-			} else {
-				for league, entries := range pvpData {
-					for _, entry := range entries {
-						if entry.Rank >= 4 {
-							continue
-						}
-						encounter.PVPData = pvpData
-						log.Printf("🎉 Top 3 %s league – %s CP:%d Rank:%d", league, getPokemonName(entry.Pokemon, "en"), entry.CP, entry.Rank)
-						for _, user := range users.TopPVP {
-							if withinDistance(user, encounter, user.MaxDistance) {
-								s.sendEncounterNotification(user, encounter)
-							}
-						}
+		for league, entries := range encounter.PVPData {
+			for _, entry := range entries {
+				if entry.Rank >= 4 {
+					continue
+				}
+				log.Printf("🎉 Top 3 %s league - %s CP:%d Rank:%d", league, getPokemonName(entry.Pokemon, "en"), entry.CP, entry.Rank)
+				for _, user := range users.TopPVP {
+					if inRange(user, user.MaxDistance) {
+						s.sendEncounterNotification(user, encounter)
 					}
 				}
 			}
@@ -284,7 +290,7 @@ func (s *NotificationService) filterAndSendEncounters(users FilteredUsers, encou
 		// 100% IV notifications.
 		if encounter.IV != nil && *encounter.IV == 100 {
 			for _, user := range users.HundoIV {
-				if withinDistance(user, encounter, user.MaxDistance) {
+				if inRange(user, user.MaxDistance) {
 					s.sendEncounterNotification(user, encounter)
 				}
 			}
@@ -293,32 +299,32 @@ func (s *NotificationService) filterAndSendEncounters(users FilteredUsers, encou
 		// 0% IV notifications.
 		if encounter.IV != nil && *encounter.IV == 0 {
 			for _, user := range users.ZeroIV {
-				if withinDistance(user, encounter, user.MaxDistance) {
+				if inRange(user, user.MaxDistance) {
 					s.sendEncounterNotification(user, encounter)
 				}
 			}
 		}
 
 		// Channel threshold notifications.
-		for _, user := range users.Channels {
-			if user.MinIV == 0 && user.MinLevel == 0 {
-				continue
-			}
-			if encounter.IV == nil || encounter.Level == nil {
-				continue
-			}
-			ivOk := (user.MinLevel == 0 && *encounter.IV >= float32(user.MinIV)) ||
-				(user.MinIV == 0 && *encounter.Level >= user.MinLevel) ||
-				(*encounter.IV >= float32(user.MinIV) && *encounter.Level >= user.MinLevel)
-			if ivOk {
-				s.sendEncounterNotification(user, encounter)
+		// Channels serve a group of people so distance is intentionally not checked here.
+		if encounter.IV != nil && encounter.Level != nil {
+			for _, user := range users.Channels {
+				if user.MinIV == 0 && user.MinLevel == 0 {
+					continue
+				}
+				if *encounter.IV >= float32(user.MinIV) && *encounter.Level >= user.MinLevel {
+					s.sendEncounterNotification(user, encounter)
+				}
 			}
 		}
 
 		// Per-Pokémon subscription notifications.
 		if subscriptions, exists := activeSubs[encounter.PokemonID]; exists {
 			for _, subscription := range subscriptions {
-				user := users.All[subscription.UserID]
+				user, ok := users.All[subscription.UserID]
+				if !ok {
+					continue
+				}
 
 				effectiveMinIV := subscription.MinIV
 				if effectiveMinIV == 0 {
@@ -339,7 +345,7 @@ func (s *NotificationService) filterAndSendEncounters(users FilteredUsers, encou
 				if effectiveMinLevel > 0 && (encounter.Level == nil || *encounter.Level < effectiveMinLevel) {
 					continue
 				}
-				if !withinDistance(user, encounter, effectiveMaxDistance) {
+				if !inRange(user, effectiveMaxDistance) {
 					continue
 				}
 				s.sendEncounterNotification(user, encounter)
