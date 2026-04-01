@@ -12,7 +12,7 @@ import (
 )
 
 // retryAfterSeconds extracts the retry-after duration from a Telegram 429 error.
-// Returns 0 if the error is not a flood/rate-limit error.
+// Returns 0 if the error is not a rate-limit error.
 func retryAfterSeconds(err error) int {
 	if err == nil {
 		return 0
@@ -50,16 +50,26 @@ func isPermanentTelegramError(err error) bool {
 		strings.Contains(s, "bot was kicked")
 }
 
-// maxFloodWaitSeconds is the longest we are willing to wait for a Telegram
-// flood-wait retry. Encounters expire quickly, so waiting longer than this
+// maxRateLimitWaitSeconds is the longest we are willing to wait for a Telegram
+// rate-limit retry. Encounters expire quickly, so waiting longer than this
 // would make the notification irrelevant.
-const maxFloodWaitSeconds = 30
+const maxRateLimitWaitSeconds = 30
 
-// botSend wraps bot.Send with automatic retry on Telegram 429 flood-wait errors.
-// If the required wait exceeds maxFloodWaitSeconds the send is abandoned immediately.
+// userRateLimitedUntil tracks per-user rate-limit expiry times.
+// If the current time is before the stored value, all sends for that user are skipped.
+var userRateLimitedUntil = make(map[int64]time.Time)
+
+// botSend wraps bot.Send with automatic retry on Telegram 429 rate-limit errors.
+// If the required wait exceeds maxRateLimitWaitSeconds the send is abandoned immediately.
 // Permanent errors (chat not found, bot blocked, etc.) disable the user's notifications.
 func botSend(userID int64, to telebot.Recipient, what interface{}, opts ...interface{}) (*telebot.Message, error) {
 	const maxRetries = 3
+
+	// Skip immediately if the user is still within a rate-limit window.
+	if until, ok := userRateLimitedUntil[userID]; ok && time.Now().Before(until) {
+		return nil, fmt.Errorf("rate limited: user %d paused until %s", userID, until.Format(time.RFC3339))
+	}
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		msg, err := bot.Send(to, what, opts...)
 		if err == nil {
@@ -74,8 +84,10 @@ func botSend(userID int64, to telebot.Recipient, what interface{}, opts ...inter
 		if secs <= 0 || attempt == maxRetries {
 			return nil, err
 		}
-		if secs > maxFloodWaitSeconds {
-			log.Printf("⏭️ Telegram rate limit too long (%ds > %ds), skipping message", secs, maxFloodWaitSeconds)
+		if secs > maxRateLimitWaitSeconds {
+			until := time.Now().Add(time.Duration(secs) * time.Second)
+			userRateLimitedUntil[userID] = until
+			log.Printf("⏭️ Telegram rate limit too long (%ds > %ds), skipping and pausing user %d until %s", secs, maxRateLimitWaitSeconds, userID, until.Format(time.RFC3339))
 			return nil, err
 		}
 		log.Printf("⏳ Telegram rate limit hit, retrying in %d seconds (attempt %d/%d)…", secs, attempt, maxRetries)
