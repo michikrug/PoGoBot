@@ -441,7 +441,9 @@ func cleanupMessages() {
 
 	for _, encounter := range encounters {
 		messages := messagesMap[encounter.ID]
-		log.Printf("🗑️ Found %d expired messages for encounter %s", len(messages), encounter.ID)
+		if len(messages) > 0 {
+			log.Printf("🗑️ Found %d expired messages for encounter %s", len(messages), encounter.ID)
+		}
 
 		for _, message := range messages {
 			user := userCache.All[message.ChatID]
