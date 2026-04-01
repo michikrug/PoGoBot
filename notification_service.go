@@ -214,41 +214,43 @@ func (s *NotificationService) sendEncounterNotification(user User, encounter Enc
 	}
 	log.Printf("🔔 Sending notification for Pokémon #%d to %d", encounter.PokemonID, user.ID)
 
-	if encounter.ExpireTimestamp != nil {
-		s.botDB.SaveEncounter(encounter.ID, int64(*encounter.ExpireTimestamp))
-	}
 	if s.notificationCache[encounter.ID] == nil {
 		s.notificationCache[encounter.ID] = make(map[int64]struct{})
+		if encounter.ExpireTimestamp != nil {
+			s.botDB.SaveEncounter(encounter.ID, int64(*encounter.ExpireTimestamp))
+		}
 	}
 	s.notificationCache[encounter.ID][user.ID] = struct{}{}
-	s.incNotifications()
 
 	if !user.OnlyMap && user.Stickers {
 		formSuffix := ""
-		if encounter.Form != nil && *encounter.Form > 0 {
-			pokemonKey := strconv.Itoa(encounter.PokemonID)
-			formKey := strconv.Itoa(*encounter.Form)
-			if pokemon, exists := s.gameData.Pokemon[pokemonKey]; exists {
-				if form, exists := pokemon.Forms[formKey]; exists && form.Name != "Normal" {
-					formSuffix = fmt.Sprintf("_f%s", formKey)
-				}
-			}
+		if key := s.resolveFormKey(encounter); key != "" {
+			formSuffix = "_f" + key
 		}
 		stickerURL := fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d%s.webp", encounter.PokemonID, formSuffix)
-		s.sendSticker(user.ID, stickerURL, encounter.ID)
+		if err := s.sendSticker(user.ID, stickerURL, encounter.ID); err != nil {
+			return
+		}
 	}
 	if !user.OnlyMap {
-		s.sendLocation(user.ID, encounter.Lat, encounter.Lon, encounter.ID)
+		if err := s.sendLocation(user.ID, encounter.Lat, encounter.Lon, encounter.ID); err != nil {
+			return
+		}
 	}
 
 	title := s.generateNotificationTitle(user, encounter)
 	body := s.generateNotificationText(user, encounter)
 
 	if !user.OnlyMap {
-		s.sendMessage(user.ID, title+"\n"+body, encounter.ID)
+		if err := s.sendMessage(user.ID, title+"\n"+body, encounter.ID); err != nil {
+			return
+		}
 	} else {
-		s.sendVenue(user.ID, encounter.Lat, encounter.Lon, title, body, encounter.ID)
+		if err := s.sendVenue(user.ID, encounter.Lat, encounter.Lon, title, body, encounter.ID); err != nil {
+			return
+		}
 	}
+	s.incNotifications()
 }
 
 // filterAndSendEncounters matches each encounter against every user category
@@ -425,17 +427,12 @@ func (s *NotificationService) generateNotificationTitle(user User, encounter Enc
 }
 
 func (s *NotificationService) buildFormSuffix(encounter EncounterData, language string) string {
-	if encounter.Form == nil || *encounter.Form <= 0 {
+	formKey := s.resolveFormKey(encounter)
+	if formKey == "" {
 		return ""
 	}
-	pokemon, exists := s.gameData.Pokemon[strconv.Itoa(encounter.PokemonID)]
-	if !exists {
-		return ""
-	}
-	form, exists := pokemon.Forms[strconv.Itoa(*encounter.Form)]
-	if !exists || form.Name == "Normal" {
-		return ""
-	}
+	// resolveFormKey already validated both the pokemon and form entries exist.
+	form := s.gameData.Pokemon[strconv.Itoa(encounter.PokemonID)].Forms[formKey]
 	costumeEmoji := ""
 	if form.IsCostume {
 		costumeEmoji = "👕 "
@@ -443,30 +440,46 @@ func (s *NotificationService) buildFormSuffix(encounter EncounterData, language 
 	return fmt.Sprintf(" (%s%s)", costumeEmoji, getTranslation(form.Name, language))
 }
 
+// resolveFormKey returns the form-key string for a non-normal form, or "" if
+// the encounter has no form, the form is unknown, or the form is Normal.
+func (s *NotificationService) resolveFormKey(encounter EncounterData) string {
+	if encounter.Form == nil || *encounter.Form <= 0 {
+		return ""
+	}
+	pokemon, exists := s.gameData.Pokemon[strconv.Itoa(encounter.PokemonID)]
+	if !exists {
+		return ""
+	}
+	formKey := strconv.Itoa(*encounter.Form)
+	form, exists := pokemon.Forms[formKey]
+	if !exists || form.Name == "Normal" {
+		return ""
+	}
+	return formKey
+}
+
+// formatDistance formats a haversine distance (in metres) as a human-readable
+// distance line with a trailing newline, using metres below 1 km and km above.
+func formatDistance(distance float64) string {
+	if distance < 1000 {
+		return fmt.Sprintf("📍 %.0fm\n", distance)
+	}
+	return fmt.Sprintf("📍 %.2fkm\n", distance/1000)
+}
+
 func (s *NotificationService) generateNotificationText(user User, encounter EncounterData) string {
 	var sb strings.Builder
 
+	if user.Latitude != 0 && user.Longitude != 0 {
+		distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
+		sb.WriteString(formatDistance(distance))
+	}
 	if encounter.ExpireTimestamp != nil {
 		expireTime := time.Unix(int64(*encounter.ExpireTimestamp), 0).In(s.timezone)
 		timeLeft := time.Until(expireTime)
-		if user.Latitude != 0 && user.Longitude != 0 {
-			distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-			if distance < 1000 {
-				sb.WriteString(fmt.Sprintf("📍 %.0fm\n", distance))
-			} else {
-				sb.WriteString(fmt.Sprintf("📍 %.2fkm\n", distance/1000))
-			}
-		}
 		sb.WriteString(fmt.Sprintf("💨 %s ⏳ %s\n",
 			expireTime.Format(time.TimeOnly),
 			timeLeft.Truncate(time.Second).String()))
-	} else if user.Latitude != 0 && user.Longitude != 0 {
-		distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
-		if distance < 1000 {
-			sb.WriteString(fmt.Sprintf("📍 %.0fm\n", distance))
-		} else {
-			sb.WriteString(fmt.Sprintf("📍 %.2fkm\n", distance/1000))
-		}
 	}
 
 	if encounter.Move1 != nil && encounter.Move2 != nil {
@@ -482,7 +495,7 @@ func (s *NotificationService) generateNotificationText(user User, encounter Enco
 			for _, entry := range entries {
 				if entry.Rank < 4 {
 					sb.WriteString("\n" +
-						tr.T(fmt.Sprintf("🏅 *%s League Rank", leagueName)) +
+						tr.Tf("🏅 *%s League Rank", leagueName) +
 						tr.Tf(" %d*: %s %dCP L%.1f",
 							entry.Rank,
 							getPokemonName(entry.Pokemon, user.Language),
