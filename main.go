@@ -12,7 +12,7 @@ import (
 
 var (
 	bot                    *telebot.Bot
-	botAdmins              map[int64]int64
+	adminImpersonation     map[int64]int64
 	userConversationStates map[int64]string
 	userCache              FilteredUsers
 	activeSubscriptions    map[int][]Subscription

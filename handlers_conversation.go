@@ -179,7 +179,7 @@ func handleImpersonateUserInput(c telebot.Context) error {
 
 	clearConversationState(userID)
 
-	botAdmins[userID] = int64(impersonatedUserID)
+	adminImpersonation[userID] = int64(impersonatedUserID)
 	user := getUserPreferences(int64(impersonatedUserID))
 	settingsMessage, replyMarkup := buildSettings(user)
 

@@ -19,9 +19,8 @@ func newTranslatorFor(c telebot.Context) Translator {
 // getUserID returns the effective user ID, handling admin impersonation.
 func getUserID(c telebot.Context) int64 {
 	userID := c.Sender().ID
-	if impersonatedID, ok := botAdmins[userID]; ok && impersonatedID != userID {
-		tr := newTranslator(userLanguage(userID))
-		c.Send(tr.T("🔒 You are impersonating another user"))
+	if impersonatedID, ok := adminImpersonation[userID]; ok {
+		c.Send(newTranslatorFor(c).T("🔒 You are impersonating another user"))
 		return impersonatedID
 	}
 	return userID
@@ -29,7 +28,7 @@ func getUserID(c telebot.Context) int64 {
 
 // isAdmin reports whether the sender is a registered bot admin.
 func isAdmin(c telebot.Context) bool {
-	_, ok := botAdmins[c.Sender().ID]
+	_, ok := appConfig.Admins[c.Sender().ID]
 	return ok
 }
 
@@ -168,7 +167,7 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 	if isChannelID(user.ID) {
 		btnReset := telebot.InlineButton{Text: tr.T("🔄 Reset"), Unique: "reset"}
 		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnReset})
-	} else if _, ok := botAdmins[user.ID]; ok {
+	} else if _, ok := appConfig.Admins[user.ID]; ok {
 		btnBroadcast := telebot.InlineButton{Text: tr.T("📢 Broadcast Message"), Unique: "broadcast"}
 		btnListChannels := telebot.InlineButton{Text: tr.T("📋 List Channels"), Unique: "list_channels"}
 		btnListUsers := telebot.InlineButton{Text: tr.T("📋 List Users"), Unique: "list_users"}
@@ -374,11 +373,11 @@ func handleReset(c telebot.Context) error {
 		return err
 	}
 	userID := c.Sender().ID
-	if botAdmins[userID] == userID {
 	tr := newTranslatorFor(c)
+	if _, ok := adminImpersonation[userID]; !ok {
 		return c.Send(tr.T("🔒 You are not impersonating another user"), telebot.ModeMarkdown)
 	}
-	botAdmins[userID] = userID
+	delete(adminImpersonation, userID)
 	return c.Send(tr.T("🔒 You are now back as yourself"))
 }
 

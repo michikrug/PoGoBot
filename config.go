@@ -33,7 +33,7 @@ type Config struct {
 
 	// Bot configuration
 	BotToken string
-	Admins   map[int64]int64
+	Admins   map[int64]struct{}
 
 	// Application settings
 	Timezone *time.Location
@@ -46,7 +46,6 @@ var appConfig *Config
 var (
 	gameData     MasterFile
 	translations map[string]map[string]string
-	timezone     *time.Location // Local timezone
 )
 
 // notificationService is the singleton used by the production application.
@@ -110,13 +109,13 @@ func loadEnvironmentVariables() {
 
 // configureBotAdmins parses and configures bot administrators
 func configureBotAdmins() {
-	appConfig.Admins = make(map[int64]int64)
+	appConfig.Admins = make(map[int64]struct{})
 	for _, admin := range strings.Split(os.Getenv("BOT_ADMINS"), ",") {
 		id, err := strconv.ParseInt(strings.TrimSpace(admin), 10, 64)
 		if err != nil {
 			log.Fatalf("❌ Invalid admin ID: %v", err)
 		}
-		appConfig.Admins[id] = id
+		appConfig.Admins[id] = struct{}{}
 	}
 	log.Printf("✅ Configured %d bot administrators", len(appConfig.Admins))
 }
@@ -250,6 +249,7 @@ func initializeApplication() {
 
 	// Initialize state maps
 	userConversationStates = make(map[int64]string)
+	adminImpersonation = make(map[int64]int64)
 
 	// Load static files
 	loadStaticFiles()
@@ -263,10 +263,6 @@ func initializeApplication() {
 	// Initialize bot
 	initBot()
 
-	// Update global variables that depend on config
-	botAdmins = appConfig.Admins
-	timezone = appConfig.Timezone
-
 	// Wire up the global notification service
 	notificationService = newNotificationService(
 		botDB,
@@ -274,7 +270,7 @@ func initializeApplication() {
 		&telegramBotSender{bot: bot},
 		&gameData,
 		translations,
-		timezone,
+		appConfig.Timezone,
 		notificationsCounter,
 		messagesCounter,
 		cleanupCounter,

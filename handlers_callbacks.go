@@ -210,7 +210,7 @@ func handleEditChannelCallback(c telebot.Context) error {
 	userID := c.Sender().ID
 
 	channelID, _ := strconv.ParseInt(c.Callback().Data, 10, 64)
-	botAdmins[userID] = channelID
+	adminImpersonation[userID] = channelID
 	c.Delete()
 	return bot.Trigger("/settings", c)
 }
