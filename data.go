@@ -14,7 +14,7 @@ var (
 
 // ── Thin wrappers around botDB ───────────────────────────────────────
 // These keep handler and notification files unchanged while still delegating
-// to the injectable repository interface.
+// to the injectable db interface.
 
 func getUserPreferences(userID int64) User {
 	return botDB.GetUserPreferences(userID)

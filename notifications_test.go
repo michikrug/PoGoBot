@@ -283,9 +283,9 @@ func setupSenderForAnyEncounter(sender *mockBotSender) {
 	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).Return(fakeMsg, nil)
 }
 
-// setupBotRepoForEncounter configures the bot repo mocks needed when a
+// setupBotDbForEncounter configures the bot db mocks needed when a
 // notification is delivered (SaveEncounter + SaveMessage).
-func setupBotRepoForEncounter(botDB *mockBotDB) {
+func setupBotDbForEncounter(botDB *mockBotDB) {
 	botDB.On("SaveEncounter", mock.Anything, mock.Anything).Return()
 	botDB.On("SaveMessage", mock.Anything, mock.Anything, mock.Anything).Return()
 }
@@ -294,12 +294,12 @@ func TestFilterAndSendEncounters_HundoIV_NotifiesHundoUsers(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
 
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
-	setupBotRepoForEncounter(repo)
+	setupBotDbForEncounter(db)
 	setupSenderForAnyEncounter(sender)
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 
 	iv := float32(100.0)
 	enc := minimalEncounter("hundo1", 25)
@@ -321,12 +321,12 @@ func TestFilterAndSendEncounters_ZeroIV_NotifiesZeroUsers(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
 
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
-	setupBotRepoForEncounter(repo)
+	setupBotDbForEncounter(db)
 	setupSenderForAnyEncounter(sender)
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 
 	iv := float32(0.0)
 	enc := minimalEncounter("zero1", 25)
@@ -347,12 +347,12 @@ func TestFilterAndSendEncounters_Subscription_AboveMinIV_Notifies(t *testing.T) 
 	gameData = testGameData()
 	translations = testTranslations()
 
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
-	setupBotRepoForEncounter(repo)
+	setupBotDbForEncounter(db)
 	setupSenderForAnyEncounter(sender)
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 
 	enc := minimalEncounter("sub1", 25) // IV = 80%
 
@@ -396,12 +396,12 @@ func TestFilterAndSendEncounters_DeduplicatesNotifications(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
 
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
-	setupBotRepoForEncounter(repo)
+	setupBotDbForEncounter(db)
 	setupSenderForAnyEncounter(sender)
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 
 	iv := float32(100.0)
 	enc := minimalEncounter("hundo_dup", 25)
@@ -458,12 +458,12 @@ func TestFilterAndSendEncounters_Channel_AboveThreshold_Notifies(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
 
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
-	setupBotRepoForEncounter(repo)
+	setupBotDbForEncounter(db)
 	setupSenderForAnyEncounter(sender)
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 
 	enc := minimalEncounter("ch1", 1) // IV=80, Level=25
 
@@ -483,23 +483,23 @@ func TestFilterAndSendEncounters_Channel_AboveThreshold_Notifies(t *testing.T) {
 // ── cleanupMessages ───────────────────────────────────────────────────────────
 
 func TestCleanupMessages_DeletesExpiredMessages(t *testing.T) {
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
 
 	enc := Encounter{ID: "expired1", Expiration: int(time.Now().Add(-1 * time.Minute).Unix())}
 	msg := Message{ChatID: 10, MessageID: 99, EncounterID: enc.ID}
 
-	repo.On("GetExpiredEncountersWithMessages").Return(
+	db.On("GetExpiredEncountersWithMessages").Return(
 		[]Encounter{enc},
 		map[string][]Message{enc.ID: {msg}},
 	)
-	repo.On("DeleteMessage", msg).Return()
-	repo.On("DeleteEncounter", enc).Return()
+	db.On("DeleteMessage", msg).Return()
+	db.On("DeleteEncounter", enc).Return()
 
 	// User has Cleanup=true → sender.Delete should be called.
 	sender.On("Delete", mock.Anything).Return(nil)
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 
 	user := User{ID: 10, Cleanup: true}
 	users := FilteredUsers{
@@ -508,26 +508,26 @@ func TestCleanupMessages_DeletesExpiredMessages(t *testing.T) {
 
 	svc.cleanupMessages(users)
 
-	repo.AssertCalled(t, "DeleteMessage", msg)
-	repo.AssertCalled(t, "DeleteEncounter", enc)
+	db.AssertCalled(t, "DeleteMessage", msg)
+	db.AssertCalled(t, "DeleteEncounter", enc)
 	sender.AssertCalled(t, "Delete", mock.Anything)
 }
 
 func TestCleanupMessages_SkipsDeleteWhenCleanupDisabled(t *testing.T) {
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
 
 	enc := Encounter{ID: "expired2"}
 	msg := Message{ChatID: 20, MessageID: 88, EncounterID: enc.ID}
 
-	repo.On("GetExpiredEncountersWithMessages").Return(
+	db.On("GetExpiredEncountersWithMessages").Return(
 		[]Encounter{enc},
 		map[string][]Message{enc.ID: {msg}},
 	)
-	repo.On("DeleteMessage", msg).Return()
-	repo.On("DeleteEncounter", enc).Return()
+	db.On("DeleteMessage", msg).Return()
+	db.On("DeleteEncounter", enc).Return()
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 
 	// Cleanup=false → sender.Delete must NOT be called.
 	user := User{ID: 20, Cleanup: false}
@@ -538,22 +538,22 @@ func TestCleanupMessages_SkipsDeleteWhenCleanupDisabled(t *testing.T) {
 	svc.cleanupMessages(users)
 
 	sender.AssertNotCalled(t, "Delete")
-	repo.AssertCalled(t, "DeleteMessage", msg)
-	repo.AssertCalled(t, "DeleteEncounter", enc)
+	db.AssertCalled(t, "DeleteMessage", msg)
+	db.AssertCalled(t, "DeleteEncounter", enc)
 }
 
 func TestCleanupMessages_ClearsNotificationCache(t *testing.T) {
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
 
 	enc := Encounter{ID: "cached1"}
-	repo.On("GetExpiredEncountersWithMessages").Return(
+	db.On("GetExpiredEncountersWithMessages").Return(
 		[]Encounter{enc},
 		map[string][]Message{},
 	)
-	repo.On("DeleteEncounter", enc).Return()
+	db.On("DeleteEncounter", enc).Return()
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 	// Pre-populate cache.
 	svc.notificationCache["cached1"] = map[int64]struct{}{99: {}}
 
@@ -565,15 +565,15 @@ func TestCleanupMessages_ClearsNotificationCache(t *testing.T) {
 }
 
 func TestCleanupMessages_NoEncounters_NoOp(t *testing.T) {
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
 
-	repo.On("GetExpiredEncountersWithMessages").Return(
+	db.On("GetExpiredEncountersWithMessages").Return(
 		[]Encounter{},
 		map[string][]Message{},
 	)
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 	users := FilteredUsers{All: map[int64]User{}}
 
 	// Should not panic or call any other method.
@@ -586,20 +586,20 @@ func TestCleanupMessages_NoEncounters_NoOp(t *testing.T) {
 // ── permanent error → disables notifications ──────────────────────────────────
 
 func TestBotSend_PermanentError_DisablesNotify(t *testing.T) {
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
 
 	permErr := errors.New("bot was blocked by the user")
 	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).Return(nil, permErr)
-	repo.On("UpdateUserPreference", int64(1), "Notify", false).Return()
-	repo.On("GetUsers").Return([]User{})
-	repo.On("GetSubscriptions").Return([]Subscription{})
+	db.On("UpdateUserPreference", int64(1), "Notify", false).Return()
+	db.On("GetUsers").Return([]User{})
+	db.On("GetSubscriptions").Return([]Subscription{})
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 
 	_, err := svc.botSend(1, &telebot.User{ID: 1}, "hello")
 	assert.Error(t, err)
-	repo.AssertCalled(t, "UpdateUserPreference", int64(1), "Notify", false)
+	db.AssertCalled(t, "UpdateUserPreference", int64(1), "Notify", false)
 }
 
 // ── rate-limit gate ───────────────────────────────────────────────────────────
@@ -667,11 +667,11 @@ func TestFilterAndSendEncounters_Subscription_NilIV_SkipsThresholdCheck(t *testi
 	gameData = testGameData()
 	translations = testTranslations()
 
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
-	setupBotRepoForEncounter(repo)
+	setupBotDbForEncounter(db)
 	setupSenderForAnyEncounter(sender)
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 
 	enc := encounterWithNilIVLevel("nil_iv_sub", 25)
 
@@ -765,12 +765,12 @@ func TestSendEncounterNotification_NilExpireTimestamp_NoPanic(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
 
-	repo := &mockBotDB{}
+	db := &mockBotDB{}
 	sender := &mockBotSender{}
 	// No SaveEncounter expectation — it should not be called when ExpireTimestamp is nil.
-	repo.On("SaveMessage", mock.Anything, mock.Anything, mock.Anything).Return()
+	db.On("SaveMessage", mock.Anything, mock.Anything, mock.Anything).Return()
 	setupSenderForAnyEncounter(sender)
-	svc := newTestService(repo, sender)
+	svc := newTestService(db, sender)
 
 	enc := minimalEncounter("nil_exp_send", 25)
 	enc.ExpireTimestamp = nil
@@ -779,5 +779,5 @@ func TestSendEncounterNotification_NilExpireTimestamp_NoPanic(t *testing.T) {
 	assert.NotPanics(t, func() {
 		svc.sendEncounterNotification(user, enc)
 	})
-	repo.AssertNotCalled(t, "SaveEncounter")
+	db.AssertNotCalled(t, "SaveEncounter")
 }
