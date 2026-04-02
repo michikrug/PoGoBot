@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -780,4 +781,721 @@ func TestSendEncounterNotification_NilExpireTimestamp_NoPanic(t *testing.T) {
 		svc.sendEncounterNotification(user, enc)
 	})
 	db.AssertNotCalled(t, "SaveEncounter")
+}
+
+// ── newNotificationService ────────────────────────────────────────────────────
+
+func TestNewNotificationService_FieldsInitialised(t *testing.T) {
+	db := &mockBotDB{}
+	scanDB := &mockScannerDB{}
+	sender := &mockBotSender{}
+	mf := testGameData()
+	tr := testTranslations()
+	tz := time.UTC
+
+	svc := newNotificationService(db, scanDB, sender, &mf, tr, tz, nil, nil, nil, nil)
+
+	require.NotNil(t, svc)
+	assert.NotNil(t, svc.notificationCache)
+	assert.NotNil(t, svc.userRateLimitedUntil)
+	assert.Equal(t, tz, svc.timezone)
+}
+
+func TestNewNotificationService_WithPrometheusCounters(t *testing.T) {
+	db := &mockBotDB{}
+	scanDB := &mockScannerDB{}
+	sender := &mockBotSender{}
+	mf := testGameData()
+	tr := testTranslations()
+
+	counter := prometheus.NewCounter(prometheus.CounterOpts{Name: "test_counter"})
+	gauge := prometheus.NewGauge(prometheus.GaugeOpts{Name: "test_gauge"})
+
+	svc := newNotificationService(db, scanDB, sender, &mf, tr, time.UTC, counter, counter, gauge, gauge)
+
+	require.NotNil(t, svc)
+	assert.NotNil(t, svc.notificationsCounter)
+	assert.NotNil(t, svc.messagesCounter)
+	assert.NotNil(t, svc.cleanupCounter)
+	assert.NotNil(t, svc.encounterGauge)
+}
+
+// ── prometheus counter nil-safety ────────────────────────────────────────────
+
+func TestIncNotifications_NilCounter_NoPanic(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+	assert.NotPanics(t, func() { svc.incNotifications() })
+}
+
+func TestIncNotifications_WithCounter(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+	counter := prometheus.NewCounter(prometheus.CounterOpts{Name: "notif_counter_test"})
+	svc.notificationsCounter = counter
+	assert.NotPanics(t, func() { svc.incNotifications() })
+}
+
+func TestIncMessages_NilCounter_NoPanic(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+	assert.NotPanics(t, func() { svc.incMessages() })
+}
+
+func TestIncMessages_WithCounter(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+	counter := prometheus.NewCounter(prometheus.CounterOpts{Name: "messages_counter_test"})
+	svc.messagesCounter = counter
+	assert.NotPanics(t, func() { svc.incMessages() })
+}
+
+func TestAddCleanup_NilGauge_NoPanic(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+	assert.NotPanics(t, func() { svc.addCleanup(5.0) })
+}
+
+func TestAddCleanup_WithGauge(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+	gauge := prometheus.NewGauge(prometheus.GaugeOpts{Name: "cleanup_gauge_test"})
+	svc.cleanupCounter = gauge
+	assert.NotPanics(t, func() { svc.addCleanup(3.0) })
+}
+
+func TestSetEncounterGauge_NilGauge_NoPanic(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+	assert.NotPanics(t, func() { svc.setEncounterGauge(10.0) })
+}
+
+func TestSetEncounterGauge_WithGauge(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+	gauge := prometheus.NewGauge(prometheus.GaugeOpts{Name: "encounter_gauge_test"})
+	svc.encounterGauge = gauge
+	assert.NotPanics(t, func() { svc.setEncounterGauge(7.0) })
+}
+
+// ── isRateLimited ─────────────────────────────────────────────────────────────
+
+func TestIsRateLimited_NotPresent_ReturnsFalse(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+	assert.False(t, svc.isRateLimited(1))
+}
+
+func TestIsRateLimited_ActiveLimit_ReturnsTrue(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+	svc.userRateLimitedUntil[1] = time.Now().Add(1 * time.Hour)
+	assert.True(t, svc.isRateLimited(1))
+}
+
+func TestIsRateLimited_ExpiredEntry_EvictsAndReturnsFalse(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+	// Set expiry in the past so it's already expired.
+	svc.userRateLimitedUntil[1] = time.Now().Add(-1 * time.Second)
+
+	result := svc.isRateLimited(1)
+
+	assert.False(t, result)
+	_, stillPresent := svc.userRateLimitedUntil[1]
+	assert.False(t, stillPresent, "expired entry should be evicted from the map")
+}
+
+// ── botSend flood error → rate-limit stored ───────────────────────────────────
+
+// floodError wraps a telebot.FloodError so errors.As can unwrap it while also
+// satisfying the error interface without dereferencing a nil *telebot.Error.
+type floodError struct {
+	retryAfter int
+}
+
+func (e floodError) Error() string { return "Too Many Requests: retry after" }
+func (e floodError) As(target interface{}) bool {
+	if fe, ok := target.(*telebot.FloodError); ok {
+		fe.RetryAfter = e.retryAfter
+		return true
+	}
+	return false
+}
+
+func TestBotSend_FloodError_StoresRateLimit(t *testing.T) {
+	sender := &mockBotSender{}
+	// Use our wrapper so FloodError.Error() doesn't panic on nil *Error.
+	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).Return(nil, floodError{retryAfter: 30})
+
+	svc := newTestService(nil, sender)
+
+	_, err := svc.botSend(1, &telebot.User{ID: 1}, "hello")
+
+	assert.Error(t, err)
+	until, ok := svc.userRateLimitedUntil[1]
+	assert.True(t, ok, "rate limit entry should be stored after flood error")
+	assert.True(t, until.After(time.Now()), "rate limit deadline should be in the future")
+}
+
+func TestBotSend_TransientError_DoesNotStoreRateLimit(t *testing.T) {
+	sender := &mockBotSender{}
+	transientErr := errors.New("network timeout")
+	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).Return(nil, transientErr)
+
+	svc := newTestService(nil, sender)
+
+	_, err := svc.botSend(1, &telebot.User{ID: 1}, "hello")
+
+	assert.Error(t, err)
+	_, ok := svc.userRateLimitedUntil[1]
+	assert.False(t, ok, "transient error should not store a rate limit")
+}
+
+func TestBotSend_Success_ReturnsMessage(t *testing.T) {
+	sender := &mockBotSender{}
+	fakeMsg := &telebot.Message{ID: 7}
+	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).Return(fakeMsg, nil)
+
+	svc := newTestService(nil, sender)
+
+	msg, err := svc.botSend(1, &telebot.User{ID: 1}, "hello")
+
+	require.NoError(t, err)
+	assert.Equal(t, 7, msg.ID)
+}
+
+// ── sendSticker ───────────────────────────────────────────────────────────────
+
+func TestSendSticker_Success_SavesMessage(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	fakeMsg := &telebot.Message{ID: 55}
+	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).Return(fakeMsg, nil)
+	db.On("SaveMessage", int64(1), 55, "enc-sticker").Return()
+
+	svc := newTestService(db, sender)
+
+	err := svc.sendSticker(1, "https://example.com/sticker.webp", "enc-sticker")
+
+	require.NoError(t, err)
+	db.AssertCalled(t, "SaveMessage", int64(1), 55, "enc-sticker")
+}
+
+func TestSendSticker_Failure_ReturnsError(t *testing.T) {
+	sender := &mockBotSender{}
+	sendErr := errors.New("sticker send failed")
+	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).Return(nil, sendErr)
+
+	svc := newTestService(nil, sender)
+
+	err := svc.sendSticker(1, "https://example.com/sticker.webp", "enc-sticker-fail")
+
+	assert.Error(t, err)
+}
+
+// ── sendLocation failure ──────────────────────────────────────────────────────
+
+func TestSendLocation_Failure_ReturnsError(t *testing.T) {
+	sender := &mockBotSender{}
+	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("location error"))
+
+	svc := newTestService(nil, sender)
+
+	err := svc.sendLocation(1, 48.0, 11.0, "enc-loc-fail")
+
+	assert.Error(t, err)
+}
+
+// ── sendVenue ─────────────────────────────────────────────────────────────────
+
+func TestSendVenue_Success_SavesMessage(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	fakeMsg := &telebot.Message{ID: 77}
+	sender.On("Send", mock.Anything, mock.Anything).Return(fakeMsg, nil)
+	db.On("SaveMessage", int64(1), 77, "enc-venue").Return()
+
+	svc := newTestService(db, sender)
+
+	err := svc.sendVenue(1, 48.0, 11.0, "Title", "Address", "enc-venue")
+
+	require.NoError(t, err)
+	db.AssertCalled(t, "SaveMessage", int64(1), 77, "enc-venue")
+}
+
+func TestSendVenue_Failure_ReturnsError(t *testing.T) {
+	sender := &mockBotSender{}
+	sender.On("Send", mock.Anything, mock.Anything).Return(nil, errors.New("venue error"))
+
+	svc := newTestService(nil, sender)
+
+	err := svc.sendVenue(1, 48.0, 11.0, "Title", "Address", "enc-venue-fail")
+
+	assert.Error(t, err)
+}
+
+// ── sendMessage failure ───────────────────────────────────────────────────────
+
+func TestSendMessage_Failure_ReturnsError(t *testing.T) {
+	sender := &mockBotSender{}
+	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("message error"))
+
+	svc := newTestService(nil, sender)
+
+	err := svc.sendMessage(1, "hello", "enc-msg-fail")
+
+	assert.Error(t, err)
+}
+
+// ── sendEncounterNotification with stickers ───────────────────────────────────
+
+func TestSendEncounterNotification_Stickers_SendsStickerFirst(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+
+	enc := minimalEncounter("sticker-enc", 25)
+	user := notifyUser(1)
+	user.Stickers = true // enable stickers
+
+	svc.sendEncounterNotification(user, enc)
+
+	// With stickers enabled: sticker + location + message = 3 sends minimum.
+	assert.GreaterOrEqual(t, sendCallCount(sender), 3)
+}
+
+func TestSendEncounterNotification_StickerFails_AbortsEarly(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	// SaveEncounter is called before any sends.
+	db.On("SaveEncounter", mock.Anything, mock.Anything).Return()
+	// First Send (sticker) fails; no further sends should happen.
+	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("sticker fail")).Once()
+
+	svc := newTestService(db, sender)
+
+	enc := minimalEncounter("sticker-fail", 25)
+	user := notifyUser(1)
+	user.Stickers = true
+
+	svc.sendEncounterNotification(user, enc)
+
+	assert.Equal(t, 1, sendCallCount(sender), "should stop after sticker failure")
+}
+
+func TestSendEncounterNotification_LocationFails_AbortsEarly(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	db.On("SaveEncounter", mock.Anything, mock.Anything).Return()
+	// Stickers disabled; first send is location and it fails.
+	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("location fail")).Once()
+
+	svc := newTestService(db, sender)
+
+	enc := minimalEncounter("loc-fail", 25)
+	user := notifyUser(1)
+	user.Stickers = false
+
+	svc.sendEncounterNotification(user, enc)
+
+	assert.Equal(t, 1, sendCallCount(sender), "should stop after location failure")
+}
+
+func TestSendEncounterNotification_MessageFails_AbortsEarly(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	fakeMsg := &telebot.Message{ID: 1}
+	db.On("SaveMessage", mock.Anything, mock.Anything, mock.Anything).Return()
+	db.On("SaveEncounter", mock.Anything, mock.Anything).Return()
+	// Location succeeds, message fails.
+	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).
+		Return(fakeMsg, nil).Once()
+	sender.On("Send", mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, errors.New("message fail")).Once()
+
+	svc := newTestService(db, sender)
+
+	enc := minimalEncounter("msg-fail", 25)
+	user := notifyUser(1)
+	user.Stickers = false
+
+	svc.sendEncounterNotification(user, enc)
+
+	assert.Equal(t, 2, sendCallCount(sender), "should stop after message failure")
+}
+
+// ── sendEncounterNotification OnlyMap path ────────────────────────────────────
+
+func TestSendEncounterNotification_OnlyMap_SendsVenue(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	fakeMsg := &telebot.Message{ID: 88}
+	// OnlyMap skips sticker and location; only sendVenue is called (no variadic opts).
+	sender.On("Send", mock.Anything, mock.Anything).Return(fakeMsg, nil)
+	db.On("SaveMessage", mock.Anything, mock.Anything, mock.Anything).Return()
+	db.On("SaveEncounter", mock.Anything, mock.Anything).Return()
+
+	svc := newTestService(db, sender)
+
+	enc := minimalEncounter("onlymap-enc", 25)
+	user := notifyUser(1)
+	user.OnlyMap = true
+
+	svc.sendEncounterNotification(user, enc)
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 1)
+}
+
+func TestSendEncounterNotification_OnlyMap_VenueFails_AbortsEarly(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	db.On("SaveEncounter", mock.Anything, mock.Anything).Return()
+	sender.On("Send", mock.Anything, mock.Anything).Return(nil, errors.New("venue fail"))
+
+	svc := newTestService(db, sender)
+
+	enc := minimalEncounter("onlymap-venuefail", 25)
+	user := notifyUser(1)
+	user.OnlyMap = true
+
+	svc.sendEncounterNotification(user, enc)
+
+	assert.Equal(t, 1, sendCallCount(sender))
+}
+
+// ── filterAndSendEncounters: TopPVP ──────────────────────────────────────────
+
+func TestFilterAndSendEncounters_TopPVP_Top3_Notifies(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+
+	enc := minimalEncounter("pvp-top3", 25)
+	enc.PVPData = PVP{
+		"great": {{Pokemon: 25, Rank: 1, CP: 1499, Level: 50, Percentage: 99.0}},
+	}
+
+	user := notifyUser(10)
+	users := FilteredUsers{
+		All:    map[int64]User{10: user},
+		TopPVP: []User{user},
+	}
+
+	svc.filterAndSendEncounters(users, []EncounterData{enc}, map[int][]Subscription{})
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+func TestFilterAndSendEncounters_TopPVP_Rank4_NoNotification(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	enc := minimalEncounter("pvp-rank4", 25)
+	enc.PVPData = PVP{
+		"great": {{Pokemon: 25, Rank: 4, CP: 1499, Level: 50, Percentage: 97.0}},
+	}
+
+	user := notifyUser(10)
+	users := FilteredUsers{
+		All:    map[int64]User{10: user},
+		TopPVP: []User{user},
+	}
+
+	svc.filterAndSendEncounters(users, []EncounterData{enc}, map[int][]Subscription{})
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestFilterAndSendEncounters_TopPVP_OutOfRange_NoNotification(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	enc := minimalEncounter("pvp-dist", 25)
+	enc.Lat = 48.14 // Munich
+	enc.Lon = 11.58
+	enc.PVPData = PVP{
+		"great": {{Pokemon: 25, Rank: 1, CP: 1499, Level: 50, Percentage: 99.0}},
+	}
+
+	user := notifyUser(10)
+	user.Latitude = 52.52  // Berlin
+	user.Longitude = 13.40 // Berlin
+	user.MaxDistance = 500 // 500 m — Munich is ~504 km away
+	users := FilteredUsers{
+		All:    map[int64]User{10: user},
+		TopPVP: []User{user},
+	}
+
+	svc.filterAndSendEncounters(users, []EncounterData{enc}, map[int][]Subscription{})
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+// ── filterAndSendEncounters: channel zero-threshold skip ─────────────────────
+
+func TestFilterAndSendEncounters_Channel_ZeroThresholds_Skipped(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	enc := minimalEncounter("ch-zero", 1)
+
+	// Channel user with both MinIV and MinLevel at zero → should be skipped.
+	user := notifyUser(20)
+	user.MinIV = 0
+	user.MinLevel = 0
+	users := FilteredUsers{
+		All:      map[int64]User{20: user},
+		Channels: []User{user},
+	}
+
+	svc.filterAndSendEncounters(users, []EncounterData{enc}, map[int][]Subscription{})
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestFilterAndSendEncounters_Channel_BelowThreshold_NoNotification(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	enc := minimalEncounter("ch-below", 1) // IV=80, Level=25
+
+	user := notifyUser(21)
+	user.MinIV = 90 // 90 > 80 → no notification
+	user.MinLevel = 20
+	users := FilteredUsers{
+		All:      map[int64]User{21: user},
+		Channels: []User{user},
+	}
+
+	svc.filterAndSendEncounters(users, []EncounterData{enc}, map[int][]Subscription{})
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+// ── filterAndSendEncounters: subscription falls back to user-level thresholds ──
+
+func TestFilterAndSendEncounters_Subscription_FallsBackToUserMinIV(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+	svc := newTestService(db, sender)
+
+	enc := minimalEncounter("fb-iv", 25) // IV = 80
+
+	user := notifyUser(30)
+	user.MinIV = 70 // user-level fallback: 70 < 80 → should notify
+	users := FilteredUsers{All: map[int64]User{30: user}}
+	// Subscription MinIV=0 → falls back to user.MinIV=70.
+	subs := map[int][]Subscription{
+		25: {{UserID: 30, PokemonID: 25, MinIV: 0}},
+	}
+
+	svc.filterAndSendEncounters(users, []EncounterData{enc}, subs)
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+func TestFilterAndSendEncounters_Subscription_FallsBackToUserMinLevel(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	enc := minimalEncounter("fb-lvl", 25) // Level = 25
+
+	user := notifyUser(31)
+	user.MinLevel = 30 // user-level fallback: 30 > 25 → no notification
+	users := FilteredUsers{All: map[int64]User{31: user}}
+	// Subscription MinLevel=0 → falls back to user.MinLevel=30.
+	subs := map[int][]Subscription{
+		25: {{UserID: 31, PokemonID: 25, MinIV: 0, MinLevel: 0}},
+	}
+
+	svc.filterAndSendEncounters(users, []EncounterData{enc}, subs)
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestFilterAndSendEncounters_Subscription_FallsBackToUserMaxDistance(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	enc := minimalEncounter("fb-dist", 25)
+	enc.Lat = 48.14 // Munich
+	enc.Lon = 11.58
+
+	user := notifyUser(32)
+	user.Latitude = 52.52   // Berlin
+	user.Longitude = 13.40  // Berlin
+	user.MaxDistance = 1000 // 1 km → Munich is far away
+	users := FilteredUsers{All: map[int64]User{32: user}}
+	// Subscription MaxDistance=0 → falls back to user.MaxDistance=1000.
+	subs := map[int][]Subscription{
+		25: {{UserID: 32, PokemonID: 25, MinIV: 0, MaxDistance: 0}},
+	}
+
+	svc.filterAndSendEncounters(users, []EncounterData{enc}, subs)
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestFilterAndSendEncounters_Subscription_UnknownUserSkipped(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	enc := minimalEncounter("unknown-user", 25)
+
+	// Subscription references user 99, but users.All has no entry for 99.
+	users := FilteredUsers{All: map[int64]User{}}
+	subs := map[int][]Subscription{
+		25: {{UserID: 99, PokemonID: 25, MinIV: 0}},
+	}
+
+	svc.filterAndSendEncounters(users, []EncounterData{enc}, subs)
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+// ── processEncounters ─────────────────────────────────────────────────────────
+
+func TestProcessEncounters_ScannerError_NoNotifications(t *testing.T) {
+	db := &mockBotDB{}
+	scanDB := &mockScannerDB{}
+	sender := &mockBotSender{}
+
+	scanDB.On("GetRecentEncounters").Return([]EncounterData{}, errors.New("db error"))
+
+	svc := newTestService(db, sender)
+	svc.scannerDB = scanDB
+
+	users := FilteredUsers{All: map[int64]User{}}
+	assert.NotPanics(t, func() {
+		svc.processEncounters(users, map[int][]Subscription{})
+	})
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestProcessEncounters_Success_DispatchesNotifications(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+
+	db := &mockBotDB{}
+	scanDB := &mockScannerDB{}
+	sender := &mockBotSender{}
+
+	enc := minimalEncounter("proc-enc", 25)
+	scanDB.On("GetRecentEncounters").Return([]EncounterData{enc}, nil)
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+	svc.scannerDB = scanDB
+
+	user := notifyUser(1)
+	users := FilteredUsers{All: map[int64]User{1: user}}
+	subs := map[int][]Subscription{
+		25: {{UserID: 1, PokemonID: 25, MinIV: 0}},
+	}
+
+	svc.processEncounters(users, subs)
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+// ── formatDistance ────────────────────────────────────────────────────────────
+
+func TestFormatDistance_BelowOneKm_UsesMetre(t *testing.T) {
+	result := formatDistance(350.0)
+	assert.Contains(t, result, "350m")
+	assert.NotContains(t, result, "km")
+}
+
+func TestFormatDistance_AboveOneKm_UsesKilometres(t *testing.T) {
+	result := formatDistance(1500.0)
+	assert.Contains(t, result, "km")
+	assert.Contains(t, result, "1.50km")
+}
+
+func TestFormatDistance_ExactlyOneKm_UsesKilometres(t *testing.T) {
+	result := formatDistance(1000.0)
+	assert.Contains(t, result, "km")
+}
+
+// ── generateNotificationText: PVP data ───────────────────────────────────────
+
+func TestGenerateNotificationText_PVPData_IncludesLeagueRank(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+	svc := newTestService(nil, &mockBotSender{})
+	user := notifyUser(1)
+	enc := minimalEncounter("pvp-text", 25)
+	enc.PVPData = PVP{
+		"great": {{Pokemon: 25, Rank: 2, CP: 1499, Level: 50, Percentage: 98.5}},
+	}
+
+	text := svc.generateNotificationText(user, enc)
+
+	assert.Contains(t, text, "Great")
+	assert.Contains(t, text, "Rank")
+	assert.Contains(t, text, "2")
+}
+
+func TestGenerateNotificationText_PVPData_Rank4_NotIncluded(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+	svc := newTestService(nil, &mockBotSender{})
+	user := notifyUser(1)
+	enc := minimalEncounter("pvp-rank4-text", 25)
+	enc.PVPData = PVP{
+		"great": {{Pokemon: 25, Rank: 4, CP: 1499, Level: 50, Percentage: 95.0}},
+	}
+
+	text := svc.generateNotificationText(user, enc)
+
+	assert.NotContains(t, text, "Great")
+}
+
+// ── generateNotificationText: km distance branch ─────────────────────────────
+
+func TestGenerateNotificationText_LargeDistance_ShowsKilometres(t *testing.T) {
+	gameData = testGameData()
+	translations = testTranslations()
+	svc := newTestService(nil, &mockBotSender{})
+	// User at Berlin, encounter at Munich (~504 km).
+	user := notifyUser(1)
+	user.Latitude = 52.52
+	user.Longitude = 13.40
+	enc := minimalEncounter("km-dist", 25)
+	enc.Lat = 48.14
+	enc.Lon = 11.58
+
+	text := svc.generateNotificationText(user, enc)
+
+	assert.Contains(t, text, "📍")
+	assert.Contains(t, text, "km")
 }
