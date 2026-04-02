@@ -166,7 +166,7 @@ func handleListUsersCallback(c telebot.Context) error {
 	c.Send(tr.Tf("📋 *All Users:* %d", len(userCache.All))+"\n\n", telebot.ModeMarkdown)
 
 	for _, user := range userCache.All {
-		if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
+		if isChannelID(user.ID) {
 			continue
 		}
 		chatInfo, _ := bot.ChatByID(user.ID)

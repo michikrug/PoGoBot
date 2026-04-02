@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"strconv"
 	"strings"
 )
 
@@ -54,7 +53,7 @@ func getUsersByFilters() {
 			if user.TopPVP {
 				userCache.TopPVP = append(userCache.TopPVP, user)
 			}
-			if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
+			if isChannelID(user.ID) {
 				userCache.Channels = append(userCache.Channels, user)
 			}
 		}

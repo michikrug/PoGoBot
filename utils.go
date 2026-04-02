@@ -4,6 +4,8 @@ import (
 	"log"
 	"math"
 	"os"
+	"strconv"
+	"strings"
 )
 
 // boolToEmoji converts a boolean value to an emoji representation
@@ -12,6 +14,12 @@ func boolToEmoji(value bool) string {
 		return "✅"
 	}
 	return "❌"
+}
+
+// isChannelID reports whether a Telegram ID belongs to a channel or supergroup.
+// Telegram assigns IDs starting with -100 to all channels and supergroups.
+func isChannelID(id int64) bool {
+	return strings.HasPrefix(strconv.FormatInt(id, 10), "-100")
 }
 
 // haversine calculates the distance between two points on Earth using the Haversine formula

@@ -101,7 +101,7 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 		boolToEmoji(user.TopPVP), boolToEmoji(user.Cleanup),
 	)
 
-	if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
+	if isChannelID(user.ID) {
 		chatInfo, _ := bot.ChatByID(user.ID)
 		settingsMessage = fmt.Sprintf(
 			tr.T("⚙️ *Channel Settings:*")+"\n"+
@@ -143,7 +143,7 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 		{btnClose},
 	}
 
-	if strings.HasPrefix(strconv.FormatInt(user.ID, 10), "-100") {
+	if isChannelID(user.ID) {
 		btnReset := telebot.InlineButton{Text: tr.T("🔄 Reset"), Unique: "reset"}
 		inlineKeyboard = append(inlineKeyboard, []telebot.InlineButton{btnReset})
 	} else if _, ok := botAdmins[user.ID]; ok {
