@@ -31,3 +31,16 @@ type BotSender interface {
 	Send(to telebot.Recipient, what interface{}, opts ...interface{}) (*telebot.Message, error)
 	Delete(msg telebot.Editable) error
 }
+
+// telegramBotSender adapts *telebot.Bot to the BotSender interface.
+type telegramBotSender struct {
+	bot *telebot.Bot
+}
+
+func (t *telegramBotSender) Send(to telebot.Recipient, what interface{}, opts ...interface{}) (*telebot.Message, error) {
+	return t.bot.Send(to, what, opts...)
+}
+
+func (t *telegramBotSender) Delete(msg telebot.Editable) error {
+	return t.bot.Delete(msg)
+}

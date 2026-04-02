@@ -310,7 +310,7 @@ func handleUnsubscribe(c telebot.Context) error {
 	}
 
 	deleteSubscription(userID, pokemonID)
-	getActiveSubscriptions()
+	getActiveSubscriptions(botDB)
 
 	user := getUserPreferences(userID)
 	return c.Send(tr.Tf("✅ Unsubscribed from %s alerts", getPokemonName(pokemonID, user.Language)))

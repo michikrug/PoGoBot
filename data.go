@@ -24,13 +24,13 @@ func updateUserPreference(userID int64, field string, value interface{}) {
 	botDB.UpdateUserPreference(userID, field, value)
 	getUsersByFilters()
 	if strings.EqualFold(field, "notify") {
-		getActiveSubscriptions()
+		getActiveSubscriptions(botDB)
 	}
 }
 
 func addSubscription(userID int64, pokemonID, minIV, minLevel, maxDistance int) {
 	botDB.AddSubscription(userID, pokemonID, minIV, minLevel, maxDistance)
-	getActiveSubscriptions()
+	getActiveSubscriptions(botDB)
 }
 
 func getUsersByFilters() {
@@ -63,10 +63,10 @@ func getUsersByFilters() {
 	usersGauge.Set(float64(len(userCache.All)))
 }
 
-func getActiveSubscriptions() {
+func getActiveSubscriptions(db BotDB) {
 	activeSubscriptions = make(map[int][]Subscription)
 	activeSubscriptionCount := 0
-	subscriptions := botDB.GetSubscriptions()
+	subscriptions := db.GetSubscriptions()
 	for _, subscription := range subscriptions {
 		if userCache.All[subscription.UserID].Notify {
 			activeSubscriptionCount++
@@ -76,18 +76,6 @@ func getActiveSubscriptions() {
 	log.Printf("📋 Loaded %d active of %d subscriptions", activeSubscriptionCount, len(subscriptions))
 	subscriptionGauge.Set(float64(len(subscriptions)))
 	activeSubscriptionGauge.Set(float64(activeSubscriptionCount))
-}
-
-func saveMessage(chatID int64, messageID int, encounterID string) {
-	botDB.SaveMessage(chatID, messageID, encounterID)
-}
-
-func saveEncounter(encounterID string, expiration int64) {
-	botDB.SaveEncounter(encounterID, expiration)
-}
-
-func getRecentEncounters() ([]EncounterData, error) {
-	return scannerDB.GetRecentEncounters()
 }
 
 func getUserSubscriptions(userID int64) []Subscription {
@@ -100,18 +88,6 @@ func deleteSubscription(userID int64, pokemonID int) {
 
 func deleteAllUserSubscriptions(userID int64) {
 	botDB.DeleteAllUserSubscriptions(userID)
-}
-
-func getExpiredEncountersWithMessages() ([]Encounter, map[string][]Message) {
-	return botDB.GetExpiredEncountersWithMessages()
-}
-
-func deleteMessage(message Message) {
-	botDB.DeleteMessage(message)
-}
-
-func deleteEncounter(encounter Encounter) {
-	botDB.DeleteEncounter(encounter)
 }
 
 func searchGymsByName(gymName string) []GymData {

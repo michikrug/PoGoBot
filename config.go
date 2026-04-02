@@ -49,6 +49,21 @@ var (
 	timezone     *time.Location // Local timezone
 )
 
+// notificationService is the singleton used by the production application.
+// Tests create their own NotificationService with mocked dependencies instead.
+var notificationService *NotificationService
+
+// startNotificationProcessing starts the background goroutine.
+func startNotificationProcessing() {
+	go func() {
+		for {
+			time.Sleep(30 * time.Second)
+			notificationService.cleanupMessages(userCache)
+			notificationService.processEncounters(userCache, activeSubscriptions)
+		}
+	}()
+}
+
 // initConfig initializes the application configuration
 func initConfig() {
 	appConfig = &Config{}
@@ -243,7 +258,7 @@ func initializeApplication() {
 	// Initialize databases — sets botDB and scannerDB
 	initDatabases()
 	getUsersByFilters()
-	getActiveSubscriptions()
+	getActiveSubscriptions(botDB)
 
 	// Initialize bot
 	initBot()

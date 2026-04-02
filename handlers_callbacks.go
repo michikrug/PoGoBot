@@ -51,7 +51,7 @@ func handleClearSubscriptionsCallback(c telebot.Context) error {
 	userID := getUserID(c)
 	tr := newTranslator(userCache.All[userID].Language)
 	deleteAllUserSubscriptions(userID)
-	getActiveSubscriptions()
+	getActiveSubscriptions(botDB)
 	return c.Edit(tr.T("🗑️ All Pokémon subscriptions cleared"))
 }
 

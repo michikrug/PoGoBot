@@ -16,9 +16,9 @@ import (
 
 // newTestService builds a NotificationService with mocked deps and no
 // Prometheus counters (all nil-safe guards in the service handle this).
-func newTestService(botDB *mockBotDB, sender *mockBotSender) *NotificationService {
+func newTestService(db BotDB, sender *mockBotSender) *NotificationService {
 	return &NotificationService{
-		botDB:                botDB,
+		botDB:                db,
 		scannerDB:            &mockScannerDB{},
 		sender:               sender,
 		gameData:             &testGameDataPtr,
@@ -117,13 +117,13 @@ func TestIsPermanentTelegramError_GenericError(t *testing.T) {
 // ── buildFormSuffix ───────────────────────────────────────────────────────────
 
 func TestBuildFormSuffix_NilForm(t *testing.T) {
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	enc := minimalEncounter("e1", 25) // Form is nil
 	assert.Equal(t, "", svc.buildFormSuffix(enc, "en"))
 }
 
 func TestBuildFormSuffix_FormZero(t *testing.T) {
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	enc := minimalEncounter("e1", 25)
 	enc.Form = pointerToInt(0)
 	assert.Equal(t, "", svc.buildFormSuffix(enc, "en"))
@@ -131,7 +131,7 @@ func TestBuildFormSuffix_FormZero(t *testing.T) {
 
 func TestBuildFormSuffix_NormalForm(t *testing.T) {
 	// Form 1 on Pikachu is "Normal" → should return "".
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	enc := minimalEncounter("e1", 25)
 	enc.Form = pointerToInt(1)
 	assert.Equal(t, "", svc.buildFormSuffix(enc, "en"))
@@ -139,7 +139,7 @@ func TestBuildFormSuffix_NormalForm(t *testing.T) {
 
 func TestBuildFormSuffix_NamedForm(t *testing.T) {
 	// Form 2 on Pikachu is "Halloween" with IsCostume=true.
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	enc := minimalEncounter("e1", 25)
 	enc.Form = pointerToInt(2)
 	suffix := svc.buildFormSuffix(enc, "en")
@@ -148,7 +148,7 @@ func TestBuildFormSuffix_NamedForm(t *testing.T) {
 }
 
 func TestBuildFormSuffix_UnknownPokemon(t *testing.T) {
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	enc := minimalEncounter("e1", 9999)
 	enc.Form = pointerToInt(1)
 	assert.Equal(t, "", svc.buildFormSuffix(enc, "en"))
@@ -159,7 +159,7 @@ func TestBuildFormSuffix_UnknownPokemon(t *testing.T) {
 func TestGenerateNotificationTitle_ContainsPokemonName(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("e1", 25)
 	title := svc.generateNotificationTitle(user, enc)
@@ -169,7 +169,7 @@ func TestGenerateNotificationTitle_ContainsPokemonName(t *testing.T) {
 func TestGenerateNotificationTitle_ContainsIVAndLevel(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("e1", 25)
 	title := svc.generateNotificationTitle(user, enc)
@@ -180,7 +180,7 @@ func TestGenerateNotificationTitle_ContainsIVAndLevel(t *testing.T) {
 func TestGenerateNotificationTitle_EnglishUsesCPLabel(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	user.Language = "en"
 	enc := minimalEncounter("e1", 25)
@@ -192,7 +192,7 @@ func TestGenerateNotificationTitle_EnglishUsesCPLabel(t *testing.T) {
 func TestGenerateNotificationTitle_GermanUsesWPLabel(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	user.Language = "de"
 	enc := minimalEncounter("e1", 25)
@@ -203,7 +203,7 @@ func TestGenerateNotificationTitle_GermanUsesWPLabel(t *testing.T) {
 func TestGenerateNotificationTitle_IncludesSizeEmoji(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("e1", 25)
 	enc.Size = pointerToInt(1) // small
@@ -216,7 +216,7 @@ func TestGenerateNotificationTitle_IncludesSizeEmoji(t *testing.T) {
 func TestGenerateNotificationText_ContainsExpireTime(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("e1", 25)
 	text := svc.generateNotificationText(user, enc)
@@ -228,7 +228,7 @@ func TestGenerateNotificationText_ContainsExpireTime(t *testing.T) {
 func TestGenerateNotificationText_ContainsMoves(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("e1", 25)
 	enc.Move1 = pointerToInt(200) // Thunderbolt
@@ -241,7 +241,7 @@ func TestGenerateNotificationText_ContainsMoves(t *testing.T) {
 func TestGenerateNotificationText_ContainsDistance(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	// User ~111 m from encounter.
 	user := notifyUser(1)
 	user.Latitude = 48.0
@@ -257,7 +257,7 @@ func TestGenerateNotificationText_ContainsDistance(t *testing.T) {
 func TestGenerateNotificationText_NoDistanceWhenNoUserLocation(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1) // Latitude/Longitude both 0
 	enc := minimalEncounter("e1", 25)
 	text := svc.generateNotificationText(user, enc)
@@ -373,10 +373,9 @@ func TestFilterAndSendEncounters_Subscription_BelowMinIV_NoNotification(t *testi
 	gameData = testGameData()
 	translations = testTranslations()
 
-	repo := &mockBotDB{}
 	sender := &mockBotSender{}
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(nil, sender)
 
 	enc := minimalEncounter("sub2", 25) // IV = 80%
 
@@ -429,10 +428,9 @@ func TestFilterAndSendEncounters_OutOfDistance_NoNotification(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
 
-	repo := &mockBotDB{}
 	sender := &mockBotSender{}
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(nil, sender)
 
 	enc := minimalEncounter("dist1", 25) // IV = 80%
 
@@ -597,10 +595,6 @@ func TestBotSend_PermanentError_DisablesNotify(t *testing.T) {
 	repo.On("GetUsers").Return([]User{})
 	repo.On("GetSubscriptions").Return([]Subscription{})
 
-	// updateUserPreference uses botDB, so wire it up for this test.
-	botDB = repo
-	t.Cleanup(func() { botDB = nil })
-
 	svc := newTestService(repo, sender)
 
 	_, err := svc.botSend(1, &telebot.User{ID: 1}, "hello")
@@ -611,10 +605,9 @@ func TestBotSend_PermanentError_DisablesNotify(t *testing.T) {
 // ── rate-limit gate ───────────────────────────────────────────────────────────
 
 func TestBotSend_UserRateLimited_SkipsSend(t *testing.T) {
-	repo := &mockBotDB{}
 	sender := &mockBotSender{}
 
-	svc := newTestService(repo, sender)
+	svc := newTestService(nil, sender)
 	// Mark user as rate-limited until far in the future.
 	svc.userRateLimitedUntil[1] = time.Now().Add(1 * time.Hour)
 
@@ -650,9 +643,8 @@ func TestFilterAndSendEncounters_Channel_NilIV_NoPanic(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
 
-	repo := &mockBotDB{}
 	sender := &mockBotSender{}
-	svc := newTestService(repo, sender)
+	svc := newTestService(nil, sender)
 
 	enc := encounterWithNilIVLevel("nil_iv_ch", 25)
 
@@ -702,9 +694,8 @@ func TestFilterAndSendEncounters_Subscription_NilIV_WithMinIV_Skips(t *testing.T
 	gameData = testGameData()
 	translations = testTranslations()
 
-	repo := &mockBotDB{}
 	sender := &mockBotSender{}
-	svc := newTestService(repo, sender)
+	svc := newTestService(nil, sender)
 
 	enc := encounterWithNilIVLevel("nil_iv_sub2", 25)
 
@@ -726,7 +717,7 @@ func TestFilterAndSendEncounters_Subscription_NilIV_WithMinIV_Skips(t *testing.T
 func TestGenerateNotificationTitle_NilFields_ReturnsSafeFallback(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := encounterWithNilIVLevel("nil_title", 25)
 
@@ -742,7 +733,7 @@ func TestGenerateNotificationTitle_NilFields_ReturnsSafeFallback(t *testing.T) {
 func TestGenerateNotificationTitle_NilCP_ReturnsSafeFallback(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("nil_cp", 25)
 	enc.CP = nil // only CP is nil
@@ -757,7 +748,7 @@ func TestGenerateNotificationTitle_NilCP_ReturnsSafeFallback(t *testing.T) {
 func TestGenerateNotificationText_NilExpireTimestamp_NoPanic(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	svc := newTestService(&mockBotDB{}, &mockBotSender{})
+	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("nil_expire", 25)
 	enc.ExpireTimestamp = nil

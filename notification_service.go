@@ -140,7 +140,8 @@ func (s *NotificationService) botSend(userID int64, to telebot.Recipient, what i
 	}
 	if isPermanentTelegramError(err) {
 		log.Printf("🚫 Permanent Telegram error for user %d, disabling notifications: %v", userID, err)
-		updateUserPreference(userID, "Notify", false)
+		s.botDB.UpdateUserPreference(userID, "Notify", false)
+		getActiveSubscriptions(s.botDB)
 		return nil, err
 	}
 	if secs := retryAfterSeconds(err); secs > 0 {
