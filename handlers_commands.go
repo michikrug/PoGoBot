@@ -10,15 +10,37 @@ import (
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
+// newTranslatorFor returns a Translator for the sender of c, falling back to
+// "en" if the sender is not yet present in the user cache.
+func newTranslatorFor(c telebot.Context) Translator {
+	return newTranslator(userFromCache(c.Sender().ID).Language)
+}
+
 // getUserID returns the effective user ID, handling admin impersonation.
 func getUserID(c telebot.Context) int64 {
 	userID := c.Sender().ID
 	if impersonatedID, ok := botAdmins[userID]; ok && impersonatedID != userID {
-		tr := newTranslator(userCache.All[userID].Language)
+		tr := newTranslator(userLanguage(userID))
 		c.Send(tr.T("🔒 You are impersonating another user"))
 		return impersonatedID
 	}
 	return userID
+}
+
+// isAdmin reports whether the sender is a registered bot admin.
+func isAdmin(c telebot.Context) bool {
+	_, ok := botAdmins[c.Sender().ID]
+	return ok
+}
+
+// requireAdmin checks that the sender is an admin. If not, it calls reply with
+// an error message and returns (true, err). Pass c.Send for command/conversation
+// handlers and c.Edit for inline-button callbacks.
+func requireAdmin(c telebot.Context, reply func(interface{}, ...interface{}) error) (bool, error) {
+	if !isAdmin(c) {
+		return true, reply(newTranslatorFor(c).T("❌ You are not authorized to use this command"))
+	}
+	return false, nil
 }
 
 // toggleUserPreference flips a boolean user preference and refreshes the settings UI.
@@ -163,13 +185,13 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 // ── Command handlers ──────────────────────────────────────────────────────────
 
 func handleStart(c telebot.Context) error {
-	user := getUserPreferences(getUserID(c))
+	userID := getUserID(c)
 
 	detectedLanguage := c.Sender().LanguageCode
 	if detectedLanguage != "en" && detectedLanguage != "de" {
 		detectedLanguage = "en"
 	}
-	updateUserPreference(user.ID, "Language", detectedLanguage)
+	updateUserPreference(userID, "Language", detectedLanguage)
 
 	tr := newTranslator(detectedLanguage)
 	startMessage := fmt.Sprintf(
@@ -185,7 +207,7 @@ func handleStart(c telebot.Context) error {
 }
 
 func handleHelp(c telebot.Context) error {
-	tr := newTranslator(userCache.All[c.Sender().ID].Language)
+	tr := newTranslatorFor(c)
 	helpMessage := tr.T("🤖 PoGo Notification Bot Commands:") + "\n\n" +
 		tr.T("🔔 /settings - Update your preferences") + "\n" +
 		tr.T("📋 /list - List your Pokémon subscriptions") + "\n" +
@@ -196,14 +218,14 @@ func handleHelp(c telebot.Context) error {
 
 func handleSettings(c telebot.Context) error {
 	userID := getUserID(c)
-	user := getUserPreferences(userID)
+	user := userFromCache(userID)
 	settingsMessage, replyMarkup := buildSettings(user)
 	return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 }
 
 func handleSubscribe(c telebot.Context) error {
 	userID := getUserID(c)
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 
 	args := c.Args()
 	if len(args) < 1 {
@@ -252,15 +274,14 @@ func handleSubscribe(c telebot.Context) error {
 
 	addSubscription(userID, pokemonID, minIV, minLevel, maxDistance)
 
-	user := getUserPreferences(userID)
 	return c.Send(tr.Tf("✅ Subscribed to %s alerts (Min IV: %d%%, Min Level: %d, Max Distance: %dm)",
-		getPokemonName(pokemonID, user.Language),
+		tr.PokemonName(pokemonID),
 		minIV, minLevel, maxDistance,
 	))
 }
 
 func handleList(c telebot.Context) error {
-	user := getUserPreferences(getUserID(c))
+	user := userFromCache(getUserID(c))
 	tr := newTranslator(user.Language)
 
 	var text strings.Builder
@@ -282,7 +303,7 @@ func handleList(c telebot.Context) error {
 
 	for _, subscription := range subscriptions {
 		entry := tr.Tf("🔹 %s (Min IV: %d%%, Min Level: %d, Max Distance: %dm)",
-			getPokemonName(subscription.PokemonID, user.Language),
+			tr.PokemonName(subscription.PokemonID),
 			subscription.MinIV, subscription.MinLevel, subscription.MaxDistance,
 		) + "\n"
 		if text.Len()+len(entry) > 4000 {
@@ -296,7 +317,7 @@ func handleList(c telebot.Context) error {
 
 func handleUnsubscribe(c telebot.Context) error {
 	userID := getUserID(c)
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 
 	args := c.Args()
 	if len(args) < 1 {
@@ -312,13 +333,11 @@ func handleUnsubscribe(c telebot.Context) error {
 	deleteSubscription(userID, pokemonID)
 	getActiveSubscriptions(botDB)
 
-	user := getUserPreferences(userID)
-	return c.Send(tr.Tf("✅ Unsubscribed from %s alerts", getPokemonName(pokemonID, user.Language)))
+	return c.Send(tr.Tf("✅ Unsubscribed from %s alerts", tr.PokemonName(pokemonID)))
 }
 
 func handleLocate(c telebot.Context) error {
-	userID := getUserID(c)
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 
 	args := c.Args()
 	if len(args) < 1 {
@@ -351,12 +370,12 @@ func handleLocate(c telebot.Context) error {
 }
 
 func handleReset(c telebot.Context) error {
-	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
-	if _, ok := botAdmins[userID]; !ok {
-		return c.Send(tr.T("❌ You are not authorized to use this command"))
+	if unauthorized, err := requireAdmin(c, c.Send); unauthorized {
+		return err
 	}
+	userID := c.Sender().ID
 	if botAdmins[userID] == userID {
+	tr := newTranslatorFor(c)
 		return c.Send(tr.T("🔒 You are not impersonating another user"), telebot.ModeMarkdown)
 	}
 	botAdmins[userID] = userID
@@ -370,7 +389,7 @@ func handleWoCommand(c telebot.Context) error {
 
 func handleLocationMessage(c telebot.Context) error {
 	userID := getUserID(c)
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 	location := c.Message().Location
 
 	updateUserPreference(userID, "Latitude", location.Lat)

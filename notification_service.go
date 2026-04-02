@@ -279,7 +279,7 @@ func (s *NotificationService) filterAndSendEncounters(users FilteredUsers, encou
 				if entry.Rank >= 4 {
 					continue
 				}
-				log.Printf("🎉 Top 3 %s league - %s CP:%d Rank:%d", league, getPokemonName(entry.Pokemon, "en"), entry.CP, entry.Rank)
+				log.Printf("🎉 Top 3 %s league - %s CP:%d Rank:%d", league, newTranslator("en").PokemonName(entry.Pokemon), entry.CP, entry.Rank)
 				for _, user := range users.TopPVP {
 					if inRange(user, user.MaxDistance) {
 						s.sendEncounterNotification(user, encounter)
@@ -404,7 +404,7 @@ func (s *NotificationService) processEncounters(users FilteredUsers, activeSubs 
 
 func (s *NotificationService) generateNotificationTitle(user User, encounter EncounterData) string {
 	tr := newTranslator(user.Language)
-	name := getPokemonName(encounter.PokemonID, user.Language)
+	name := tr.PokemonName(encounter.PokemonID)
 	formSuffix := s.buildFormSuffix(encounter, user.Language)
 	genderEmoji := getGenderEmoji(encounter.Gender)
 	cpLabel := tr.T("CP")
@@ -476,6 +476,7 @@ func formatDistance(distance float64) string {
 
 func (s *NotificationService) generateNotificationText(user User, encounter EncounterData) string {
 	var sb strings.Builder
+	tr := newTranslator(user.Language)
 
 	if user.Latitude != 0 && user.Longitude != 0 {
 		distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
@@ -491,12 +492,11 @@ func (s *NotificationService) generateNotificationText(user User, encounter Enco
 
 	if encounter.Move1 != nil && encounter.Move2 != nil {
 		sb.WriteString(fmt.Sprintf("💥 %s / %s",
-			getMoveName(*encounter.Move1, user.Language),
-			getMoveName(*encounter.Move2, user.Language)))
+			tr.MoveName(*encounter.Move1),
+			tr.MoveName(*encounter.Move2)))
 	}
 
 	if encounter.PVPData != nil {
-		tr := newTranslator(user.Language)
 		for league, entries := range encounter.PVPData {
 			leagueName := strings.ToUpper(string(league[0])) + league[1:]
 			for _, entry := range entries {
@@ -505,7 +505,7 @@ func (s *NotificationService) generateNotificationText(user User, encounter Enco
 						tr.Tf("🏅 *%s League Rank", leagueName) +
 						tr.Tf(" %d*: %s %dCP L%.1f",
 							entry.Rank,
-							getPokemonName(entry.Pokemon, user.Language),
+							tr.PokemonName(entry.Pokemon),
 							entry.CP,
 							entry.Level,
 						))

@@ -31,14 +31,14 @@ func clearConversationState(userID int64) {
 
 func handleCancelConversation(c telebot.Context) error {
 	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 	clearConversationState(userID)
 	return c.Send(tr.T("❌ Aborted"))
 }
 
 func handleAddSubscriptionPokemon(c telebot.Context) error {
 	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 	pokemonName := c.Text()
 
 	pokemonID, err := getPokemonID(pokemonName)
@@ -49,13 +49,13 @@ func handleAddSubscriptionPokemon(c telebot.Context) error {
 	userConversationStates[userID] = fmt.Sprintf("add_subscription_iv_%d", pokemonID)
 
 	return c.Send(tr.Tf("📣 Subscribing to %s alerts. Please enter the minimal IV percentage (0-100):",
-		getPokemonName(pokemonID, tr.lang),
+		tr.PokemonName(pokemonID),
 	))
 }
 
 func handleAddSubscriptionIV(c telebot.Context, pokemonID int) error {
 	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 
 	minIV, err := validateIntInRange(c.Text(), 0, 100, "❌ Invalid input! Please enter a valid IV percentage (0-100)")
 	if err != nil {
@@ -69,7 +69,7 @@ func handleAddSubscriptionIV(c telebot.Context, pokemonID int) error {
 
 func handleAddSubscriptionLevel(c telebot.Context, pokemonID, minIV int) error {
 	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 
 	minLevel, err := validateIntInRange(c.Text(), 0, 40, "❌ Invalid input! Please enter a valid level (0-40)")
 	if err != nil {
@@ -83,7 +83,7 @@ func handleAddSubscriptionLevel(c telebot.Context, pokemonID, minIV int) error {
 
 func handleAddSubscriptionDistance(c telebot.Context, pokemonID, minIV, minLevel int) error {
 	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 
 	maxDistance, err := validateIntInRange(c.Text(), 0, 999999, "❌ Invalid input! Please enter a valid distance (in m)")
 	if err != nil {
@@ -95,14 +95,14 @@ func handleAddSubscriptionDistance(c telebot.Context, pokemonID, minIV, minLevel
 	clearConversationState(userID)
 
 	return c.Send(tr.Tf("✅ Subscribed to %s alerts (Min IV: %d%%, Min Level: %d, Max Distance: %dm)",
-		getPokemonName(pokemonID, tr.lang),
+		tr.PokemonName(pokemonID),
 		minIV, minLevel, maxDistance,
 	))
 }
 
 func handleSetDistanceInput(c telebot.Context) error {
 	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 
 	maxDistance, err := validateIntInRange(c.Text(), 0, 999999, "❌ Invalid input! Please enter a valid distance (in m)")
 	if err != nil {
@@ -118,7 +118,7 @@ func handleSetDistanceInput(c telebot.Context) error {
 
 func handleSetMinIVInput(c telebot.Context) error {
 	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 
 	minIV, err := validateIntInRange(c.Text(), 0, 100, "❌ Invalid input! Please enter a valid IV percentage (0-100)")
 	if err != nil {
@@ -134,7 +134,7 @@ func handleSetMinIVInput(c telebot.Context) error {
 
 func handleSetMinLevelInput(c telebot.Context) error {
 	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 
 	minLevel, err := validateIntInRange(c.Text(), 0, 40, "❌ Invalid input! Please enter a valid level (0-40)")
 	if err != nil {
@@ -149,13 +149,11 @@ func handleSetMinLevelInput(c telebot.Context) error {
 }
 
 func handleBroadcastInput(c telebot.Context) error {
-	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
-
-	if _, ok := botAdmins[userID]; !ok {
-		return c.Send(tr.T("❌ You are not authorized to use this command"))
+	if unauthorized, err := requireAdmin(c, c.Send); unauthorized {
+		return err
 	}
-
+	userID := c.Sender().ID
+	tr := newTranslatorFor(c)
 	message := c.Text()
 	for _, user := range userCache.All {
 		if user.Notify {
@@ -169,13 +167,11 @@ func handleBroadcastInput(c telebot.Context) error {
 }
 
 func handleImpersonateUserInput(c telebot.Context) error {
-	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
-
-	if _, ok := botAdmins[userID]; !ok {
-		return c.Send(tr.T("❌ You are not authorized to use this command"))
+	if unauthorized, err := requireAdmin(c, c.Send); unauthorized {
+		return err
 	}
-
+	userID := c.Sender().ID
+	tr := newTranslatorFor(c)
 	impersonatedUserID, err := strconv.Atoi(c.Text())
 	if err != nil {
 		return c.Send(tr.T("❌ Invalid user ID"))

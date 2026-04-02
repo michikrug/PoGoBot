@@ -68,50 +68,50 @@ func TestGetTranslation_UnknownLanguage_FallsBackToKey(t *testing.T) {
 	assert.Equal(t, "Pikachu", getTranslation("Pikachu", "zz"))
 }
 
-// ── getPokemonName ────────────────────────────────────────────────────────────
+// ── Translator.PokemonName ────────────────────────────────────────────────────
 
 func TestGetPokemonName_English_KnownID(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	assert.Equal(t, "Pikachu", getPokemonName(25, "en"))
+	assert.Equal(t, "Pikachu", newTranslator("en").PokemonName(25))
 }
 
 func TestGetPokemonName_German_KnownID(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	assert.Equal(t, "Bisasam", getPokemonName(1, "de"))
+	assert.Equal(t, "Bisasam", newTranslator("de").PokemonName(1))
 }
 
 func TestGetPokemonName_English_UnknownID(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	assert.Equal(t, "Unknown", getPokemonName(9999, "en"))
+	assert.Equal(t, "Unknown", newTranslator("en").PokemonName(9999))
 }
 
 func TestGetPokemonName_German_UnknownID(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	assert.Equal(t, "Unbekannt", getPokemonName(9999, "de"))
+	assert.Equal(t, "Unbekannt", newTranslator("de").PokemonName(9999))
 }
 
-// ── getMoveName ───────────────────────────────────────────────────────────────
+// ── Translator.MoveName ───────────────────────────────────────────────────────
 
 func TestGetMoveName_English_KnownID(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	assert.Equal(t, "Thunderbolt", getMoveName(200, "en"))
+	assert.Equal(t, "Thunderbolt", newTranslator("en").MoveName(200))
 }
 
 func TestGetMoveName_German_KnownID(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	assert.Equal(t, "Donnerblitz", getMoveName(200, "de"))
+	assert.Equal(t, "Donnerblitz", newTranslator("de").MoveName(200))
 }
 
 func TestGetMoveName_English_UnknownID(t *testing.T) {
 	gameData = testGameData()
 	translations = testTranslations()
-	assert.Equal(t, "Unknown", getMoveName(9999, "en"))
+	assert.Equal(t, "Unknown", newTranslator("en").MoveName(9999))
 }
 
 // ── getPokemonID ──────────────────────────────────────────────────────────────

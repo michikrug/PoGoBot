@@ -81,6 +81,18 @@ func getUserSubscriptions(userID int64) []Subscription {
 	return botDB.GetUserSubscriptions(userID)
 }
 
+// userFromCache returns the cached User for the given ID.
+// Falls back to a zero-value User with "en" language if not found.
+// Use this for read-only display when no preference write has just occurred.
+// Use getUserPreferences when you need authoritative data after a write,
+// or when accessing a user that may not be in the cache (e.g. impersonation).
+func userFromCache(userID int64) User {
+	if user, ok := userCache.All[userID]; ok {
+		return user
+	}
+	return User{ID: userID, Language: "en"}
+}
+
 func deleteSubscription(userID int64, pokemonID int) {
 	botDB.DeleteSubscription(userID, pokemonID)
 }

@@ -20,22 +20,6 @@ func getPokemonID(name string) (int, error) {
 	return pokemonID, nil
 }
 
-// getPokemonName returns the localised name for the given Pokédex ID.
-func getPokemonName(pokemonID int, language string) string {
-	if pokemonData, exists := gameData.Pokemon[strconv.Itoa(pokemonID)]; exists {
-		return getTranslation(pokemonData.Name, language)
-	}
-	return getTranslation("Unknown", language)
-}
-
-// getMoveName returns the localised name for the given move ID.
-func getMoveName(moveID int, language string) string {
-	if moveData, exists := gameData.Moves[strconv.Itoa(moveID)]; exists {
-		return getTranslation(moveData.Name, language)
-	}
-	return getTranslation("Unknown", language)
-}
-
 // Translator provides localised string helpers bound to a specific language.
 // Create one per handler via newTranslator(language) and use T / Tf instead of
 // calling getTranslation(key, language) everywhere.
@@ -55,6 +39,22 @@ func (tr Translator) T(key string) string {
 // common fmt.Sprintf(getTranslation(key, lang), args...) pattern.
 func (tr Translator) Tf(key string, args ...any) string {
 	return fmt.Sprintf(tr.T(key), args...)
+}
+
+// PokemonName returns the localised Pokémon name for the given Pokédex ID.
+func (tr Translator) PokemonName(pokemonID int) string {
+	if pokemonData, exists := gameData.Pokemon[strconv.Itoa(pokemonID)]; exists {
+		return tr.T(pokemonData.Name)
+	}
+	return tr.T("Unknown")
+}
+
+// MoveName returns the localised move name for the given move ID.
+func (tr Translator) MoveName(moveID int) string {
+	if moveData, exists := gameData.Moves[strconv.Itoa(moveID)]; exists {
+		return tr.T(moveData.Name)
+	}
+	return tr.T("Unknown")
 }
 
 // getTranslation returns the translation for key in the requested language.

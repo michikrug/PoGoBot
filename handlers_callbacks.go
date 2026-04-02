@@ -22,8 +22,7 @@ func handleResetCallback(c telebot.Context) error {
 // ── Gym location ──────────────────────────────────────────────────────────────
 
 func handleLocateGymCallback(c telebot.Context) error {
-	userID := getUserID(c)
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 	gymID := c.Callback().Data
 	if gymID == "" {
 		return c.Send(tr.T("❌ Invalid Gym ID"))
@@ -36,8 +35,7 @@ func handleLocateGymCallback(c telebot.Context) error {
 // ── Subscription management ───────────────────────────────────────────────────
 
 func handleAddSubscriptionCallback(c telebot.Context) error {
-	userID := getUserID(c)
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 	userConversationStates[c.Sender().ID] = "add_subscription"
 	return c.Edit(tr.T("📣 Enter the Pokémon name you want to subscribe to:"))
 }
@@ -49,7 +47,7 @@ func handleListSubscriptionsCallback(c telebot.Context) error {
 
 func handleClearSubscriptionsCallback(c telebot.Context) error {
 	userID := getUserID(c)
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 	deleteAllUserSubscriptions(userID)
 	getActiveSubscriptions(botDB)
 	return c.Edit(tr.T("🗑️ All Pokémon subscriptions cleared"))
@@ -84,7 +82,7 @@ func handleToggleCleanupCallback(c telebot.Context) error {
 // ── Language callbacks ────────────────────────────────────────────────────────
 
 func handleChangeLangCallback(c telebot.Context) error {
-	tr := newTranslator(userCache.All[c.Sender().ID].Language)
+	tr := newTranslatorFor(c)
 	btnEnglish := telebot.InlineButton{Text: "🇬🇧 English", Unique: "set_lang_en"}
 	btnDeutsch := telebot.InlineButton{Text: "🇩🇪 Deutsch", Unique: "set_lang_de"}
 	return c.Edit(tr.T("🌍 *Select a language:*"), &telebot.ReplyMarkup{
@@ -110,7 +108,7 @@ func handleSetLangDeCallback(c telebot.Context) error {
 
 func handleUpdateLocationCallback(c telebot.Context) error {
 	c.Delete()
-	tr := newTranslator(userCache.All[c.Sender().ID].Language)
+	tr := newTranslatorFor(c)
 	btnShareLocation := telebot.ReplyButton{
 		Text:     tr.T("📍 Send Location"),
 		Location: true,
@@ -123,21 +121,21 @@ func handleUpdateLocationCallback(c telebot.Context) error {
 
 func handleSetDistanceCallback(c telebot.Context) error {
 	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 	userConversationStates[userID] = "set_distance"
 	return c.Edit(tr.T("📏 Enter the maximal distance (in m):"))
 }
 
 func handleSetMinIVCallback(c telebot.Context) error {
 	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 	userConversationStates[userID] = "set_min_iv"
 	return c.Edit(tr.T("✨ Enter the minimal IV percentage (0-100):"))
 }
 
 func handleSetMinLevelCallback(c telebot.Context) error {
 	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
+	tr := newTranslatorFor(c)
 	userConversationStates[userID] = "set_min_level"
 	return c.Edit(tr.T("🔢 Enter the minimal Pokémon level (1-40):"))
 }
@@ -145,23 +143,21 @@ func handleSetMinLevelCallback(c telebot.Context) error {
 // ── Admin callbacks ───────────────────────────────────────────────────────────
 
 func handleBroadcastCallback(c telebot.Context) error {
-	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
-	if _, ok := botAdmins[userID]; !ok {
-		return c.Edit(tr.T("❌ You are not authorized to use this command"))
+	if unauthorized, err := requireAdmin(c, c.Edit); unauthorized {
+		return err
 	}
+	userID := c.Sender().ID
+	tr := newTranslatorFor(c)
 	userConversationStates[userID] = "broadcast"
 	return c.Edit(tr.T("📢 Enter the message you want to broadcast to all users:"))
 }
 
 func handleListUsersCallback(c telebot.Context) error {
 	c.Delete()
-	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
-	if _, ok := botAdmins[userID]; !ok {
-		return c.Edit(tr.T("❌ You are not authorized to use this command"))
+	if unauthorized, err := requireAdmin(c, c.Edit); unauthorized {
+		return err
 	}
-
+	tr := newTranslatorFor(c)
 	var text strings.Builder
 	c.Send(tr.Tf("📋 *All Users:* %d", len(userCache.All))+"\n\n", telebot.ModeMarkdown)
 
@@ -182,11 +178,10 @@ func handleListUsersCallback(c telebot.Context) error {
 }
 
 func handleListChannelsCallback(c telebot.Context) error {
-	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
-	if _, ok := botAdmins[userID]; !ok {
-		return c.Edit(tr.T("❌ You are not authorized to use this command"))
+	if unauthorized, err := requireAdmin(c, c.Edit); unauthorized {
+		return err
 	}
+	tr := newTranslatorFor(c)
 
 	var text strings.Builder
 	text.WriteString(tr.Tf("📋 *All Channels:* %d", len(userCache.Channels)) + "\n\n")
@@ -209,11 +204,10 @@ func handleListChannelsCallback(c telebot.Context) error {
 }
 
 func handleEditChannelCallback(c telebot.Context) error {
-	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
-	if _, ok := botAdmins[userID]; !ok {
-		return c.Edit(tr.T("❌ You are not authorized to use this command"))
+	if unauthorized, err := requireAdmin(c, c.Edit); unauthorized {
+		return err
 	}
+	userID := c.Sender().ID
 
 	channelID, _ := strconv.ParseInt(c.Callback().Data, 10, 64)
 	botAdmins[userID] = channelID
@@ -222,11 +216,11 @@ func handleEditChannelCallback(c telebot.Context) error {
 }
 
 func handleImpersonateUserCallback(c telebot.Context) error {
-	userID := c.Sender().ID
-	tr := newTranslator(userCache.All[userID].Language)
-	if _, ok := botAdmins[c.Sender().ID]; !ok {
-		return c.Edit(tr.T("❌ You are not authorized to use this command"))
+	if unauthorized, err := requireAdmin(c, c.Edit); unauthorized {
+		return err
 	}
-	userConversationStates[c.Sender().ID] = "impersonate_user"
+	userID := c.Sender().ID
+	tr := newTranslatorFor(c)
+	userConversationStates[userID] = "impersonate_user"
 	return c.Edit(tr.T("👤 Enter the user ID you want to impersonate:"))
 }
