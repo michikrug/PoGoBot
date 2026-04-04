@@ -124,8 +124,8 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 			tr.T("💯 *100%% IV Notifications:* %s")+"\n"+
 			tr.T("🚫 *0%% IV Notifications:* %s")+"\n"+
 			tr.T("🏅 *Top PVP Notifications:* %s")+"\n"+
-			tr.T("⚔️ *Raid Subscriptions:* %s")+"\n"+
-			tr.T("⚔️ *Raid Minimal Level:* %d")+"\n"+
+			tr.T("⚔️ *Subscriptions for all Raids:* %s")+"\n"+
+			tr.T("⚔️ *Minimal Level for all Raids:* %d")+"\n"+
 			tr.T("🗑️ *Cleanup Expired Notifications:* %s")+"\n\n"+
 			tr.T("Use the buttons below to update the settings"),
 		user.Language, user.Latitude, user.Longitude,
@@ -151,8 +151,8 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 				tr.T("💯 *100%% IV Notifications:* %s")+"\n"+
 				tr.T("🚫 *0%% IV Notifications:* %s")+"\n"+
 				tr.T("🏅 *Top PVP Notifications:* %s")+"\n"+
-				tr.T("⚔️ *Raid Subscriptions:* %s")+"\n"+
-				tr.T("⚔️ *Raid Minimal Level:* %d")+"\n"+
+				tr.T("⚔️ *Subscriptions for all Raids:* %s")+"\n"+
+				tr.T("⚔️ *Minimal Level for all Raids:* %d")+"\n"+
 				tr.T("🗑️ *Cleanup Expired Notifications:* %s")+"\n\n"+
 				tr.T("Use the buttons below to update the settings"),
 			user.ID, chatInfo.Title, user.Language, user.MinIV, user.MinLevel,
