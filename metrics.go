@@ -55,6 +55,30 @@ var (
 			Help: "Total number of active Pokémon subscriptions",
 		},
 	)
+	raidNotificationsCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "bot_raid_notifications_total",
+			Help: "Total number of raid notifications triggered",
+		},
+	)
+	raidEncounterGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "bot_raid_encounters_count",
+			Help: "Total number of active raids retrieved",
+		},
+	)
+	raidSubscriptionGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "bot_raid_subscription_count",
+			Help: "Total number of raid subscriptions",
+		},
+	)
+	activeRaidSubscriptionGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "bot_raid_subscription_active_count",
+			Help: "Total number of active raid subscriptions",
+		},
+	)
 )
 
 // initMetrics initializes and registers all Prometheus metrics
@@ -66,6 +90,10 @@ func initMetrics() {
 	customRegistry.MustRegister(usersGauge)
 	customRegistry.MustRegister(subscriptionGauge)
 	customRegistry.MustRegister(activeSubscriptionGauge)
+	customRegistry.MustRegister(raidNotificationsCounter)
+	customRegistry.MustRegister(raidEncounterGauge)
+	customRegistry.MustRegister(raidSubscriptionGauge)
+	customRegistry.MustRegister(activeRaidSubscriptionGauge)
 }
 
 // metricsServer holds the HTTP server instance for shutdown

@@ -24,6 +24,7 @@ func updateUserPreference(userID int64, field string, value interface{}) {
 	getUsersByFilters()
 	if strings.EqualFold(field, "notify") {
 		getActiveSubscriptions(botDB)
+		getRaidActiveSubscriptions(botDB)
 	}
 }
 
@@ -40,6 +41,7 @@ func getUsersByFilters() {
 		ZeroIV:   []User{},
 		TopPVP:   []User{},
 		Channels: []User{},
+		AllRaids: []User{},
 	}
 	for _, user := range allUsers {
 		userCache.All[user.ID] = user
@@ -55,6 +57,9 @@ func getUsersByFilters() {
 			}
 			if isChannelID(user.ID) {
 				userCache.Channels = append(userCache.Channels, user)
+			}
+			if user.AllRaids {
+				userCache.AllRaids = append(userCache.AllRaids, user)
 			}
 		}
 	}
@@ -75,6 +80,21 @@ func getActiveSubscriptions(db BotDB) {
 	log.Printf("📋 Loaded %d active of %d subscriptions", activeSubscriptionCount, len(subscriptions))
 	subscriptionGauge.Set(float64(len(subscriptions)))
 	activeSubscriptionGauge.Set(float64(activeSubscriptionCount))
+}
+
+func getRaidActiveSubscriptions(db BotDB) {
+	activeRaidSubscriptions = make(map[int][]RaidSubscription)
+	activeRaidSubscriptionCount := 0
+	subscriptions := db.GetRaidSubscriptions()
+	for _, sub := range subscriptions {
+		if userCache.All[sub.UserID].Notify {
+			activeRaidSubscriptionCount++
+			activeRaidSubscriptions[sub.PokemonID] = append(activeRaidSubscriptions[sub.PokemonID], sub)
+		}
+	}
+	log.Printf("📋 Loaded %d active of %d raid subscriptions", activeRaidSubscriptionCount, len(subscriptions))
+	raidSubscriptionGauge.Set(float64(len(subscriptions)))
+	activeRaidSubscriptionGauge.Set(float64(activeRaidSubscriptionCount))
 }
 
 func getUserSubscriptions(userID int64) []Subscription {
@@ -99,6 +119,25 @@ func deleteSubscription(userID int64, pokemonID int) {
 
 func deleteAllUserSubscriptions(userID int64) {
 	botDB.DeleteAllUserSubscriptions(userID)
+}
+
+func addRaidSubscription(userID int64, pokemonID, raidLevel int) {
+	botDB.AddRaidSubscription(userID, pokemonID, raidLevel)
+	getRaidActiveSubscriptions(botDB)
+}
+
+func getUserRaidSubscriptions(userID int64) []RaidSubscription {
+	return botDB.GetUserRaidSubscriptions(userID)
+}
+
+func deleteRaidSubscription(userID int64, pokemonID, raidLevel int) {
+	botDB.DeleteRaidSubscription(userID, pokemonID, raidLevel)
+	getRaidActiveSubscriptions(botDB)
+}
+
+func deleteAllUserRaidSubscriptions(userID int64) {
+	botDB.DeleteAllUserRaidSubscriptions(userID)
+	getRaidActiveSubscriptions(botDB)
 }
 
 func searchGymsByName(gymName string) []GymData {

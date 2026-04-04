@@ -68,6 +68,30 @@ func (m *mockBotDB) DeleteEncounter(encounter Encounter) {
 	m.Called(encounter)
 }
 
+// ── mockBotDB: raid subscription methods ──────────────────────────────────────
+
+func (m *mockBotDB) AddRaidSubscription(userID int64, pokemonID, raidLevel int) {
+	m.Called(userID, pokemonID, raidLevel)
+}
+
+func (m *mockBotDB) GetRaidSubscriptions() []RaidSubscription {
+	args := m.Called()
+	return args.Get(0).([]RaidSubscription)
+}
+
+func (m *mockBotDB) GetUserRaidSubscriptions(userID int64) []RaidSubscription {
+	args := m.Called(userID)
+	return args.Get(0).([]RaidSubscription)
+}
+
+func (m *mockBotDB) DeleteRaidSubscription(userID int64, pokemonID, raidLevel int) {
+	m.Called(userID, pokemonID, raidLevel)
+}
+
+func (m *mockBotDB) DeleteAllUserRaidSubscriptions(userID int64) {
+	m.Called(userID)
+}
+
 // ── mockScannerDB ─────────────────────────────────────────────────────────────
 
 type mockScannerDB struct {
@@ -87,6 +111,11 @@ func (m *mockScannerDB) SearchGymsByName(name string) []GymData {
 func (m *mockScannerDB) GetGymByID(id string) GymData {
 	args := m.Called(id)
 	return args.Get(0).(GymData)
+}
+
+func (m *mockScannerDB) GetActiveRaids() ([]GymData, error) {
+	args := m.Called()
+	return args.Get(0).([]GymData), args.Error(1)
 }
 
 // ── mockBotSender ─────────────────────────────────────────────────────────────

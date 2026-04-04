@@ -1,7 +1,6 @@
 package main
 
 import (
-	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,39 +37,32 @@ func userAt(lat, lon float32, maxDist int) User {
 	return User{Latitude: lat, Longitude: lon, MaxDistance: maxDist}
 }
 
-func encounterAt(lat, lon float32) EncounterData {
-	return EncounterData{Lat: lat, Lon: lon}
-}
-
 func TestWithinDistance_NoLocation_ReturnsTrue(t *testing.T) {
 	u := User{Latitude: 0, Longitude: 0, MaxDistance: 500}
-	assert.True(t, withinDistance(u, encounterAt(48.0, 11.0), u.MaxDistance))
+	assert.True(t, withinDistance(u, 48.0, 11.0, u.MaxDistance))
 }
 
 func TestWithinDistance_NoMaxDistance_ReturnsTrue(t *testing.T) {
 	u := userAt(48.0, 11.0, 0)
-	assert.True(t, withinDistance(u, encounterAt(48.5, 11.5), 0))
+	assert.True(t, withinDistance(u, 48.5, 11.5, 0))
 }
 
 func TestWithinDistance_CloseEnough(t *testing.T) {
-	// User and encounter ~111 m apart; limit 200 m.
+	// User and target ~111 m apart; limit 200 m.
 	u := userAt(48.0, 11.0, 200)
-	assert.True(t, withinDistance(u, encounterAt(48.001, 11.0), u.MaxDistance))
+	assert.True(t, withinDistance(u, 48.001, 11.0, u.MaxDistance))
 }
 
 func TestWithinDistance_TooFar(t *testing.T) {
-	// User and encounter ~111 m apart; limit 50 m.
+	// User and target ~111 m apart; limit 50 m.
 	u := userAt(48.0, 11.0, 50)
-	assert.False(t, withinDistance(u, encounterAt(48.001, 11.0), u.MaxDistance))
+	assert.False(t, withinDistance(u, 48.001, 11.0, u.MaxDistance))
 }
 
 func TestWithinDistance_ExactlyOnBoundary(t *testing.T) {
-	// Place encounter exactly at maxDistance and verify the ≤ check passes.
-	u := userAt(0, 0, 1000)
-	dist := haversine(0, 0, float64(encounterAt(0.009, 0).Lat), float64(encounterAt(0.009, 0).Lon))
-	enc := encounterAt(float32(math.Round(float64(dist)/111.0)*0.001), 0)
 	// Just assert the function doesn't panic and returns a bool.
-	_ = withinDistance(u, enc, u.MaxDistance)
+	u := userAt(0, 0, 1000)
+	_ = withinDistance(u, 0.009, 0, u.MaxDistance)
 }
 
 // ── boolToEmoji ───────────────────────────────────────────────────────────────

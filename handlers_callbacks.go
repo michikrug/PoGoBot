@@ -53,6 +53,37 @@ func handleClearSubscriptionsCallback(c telebot.Context) error {
 	return c.Edit(tr.T("🗑️ All Pokémon subscriptions cleared"))
 }
 
+// ── Raid subscription callbacks ───────────────────────────────────────────────
+
+func handleToggleAllRaidsCallback(c telebot.Context) error {
+	return toggleUserPreference(c, "AllRaids", func(user *User) bool { return !user.AllRaids })
+}
+
+func handleSetRaidMinLevelCallback(c telebot.Context) error {
+	userID := c.Sender().ID
+	tr := newTranslatorFor(c)
+	userConversationStates[userID] = "set_raid_min_level"
+	return c.Edit(tr.T("🔢 Enter the minimal raid level (1-19):"))
+}
+
+func handleAddRaidSubscriptionCallback(c telebot.Context) error {
+	tr := newTranslatorFor(c)
+	userConversationStates[c.Sender().ID] = "add_raid_subscription"
+	return c.Edit(tr.T("⚔️ Enter the Pokémon name (or 'all') to subscribe to raids:"))
+}
+
+func handleListRaidSubscriptionsCallback(c telebot.Context) error {
+	c.Delete()
+	return bot.Trigger("/raidlist", c)
+}
+
+func handleClearRaidSubscriptionsCallback(c telebot.Context) error {
+	userID := getUserID(c)
+	tr := newTranslatorFor(c)
+	deleteAllUserRaidSubscriptions(userID)
+	return c.Edit(tr.T("🗑️ All Raid subscriptions cleared"))
+}
+
 // ── Settings toggle callbacks ─────────────────────────────────────────────────
 
 func handleToggleNotificationsCallback(c telebot.Context) error {

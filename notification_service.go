@@ -29,10 +29,12 @@ type NotificationService struct {
 	userRateLimitedUntil map[int64]time.Time
 
 	// prometheus metrics (nil-safe: all writes are guarded)
-	notificationsCounter prometheus.Counter
-	messagesCounter      prometheus.Counter
-	cleanupCounter       prometheus.Gauge
-	encounterGauge       prometheus.Gauge
+	notificationsCounter     prometheus.Counter
+	messagesCounter          prometheus.Counter
+	cleanupCounter           prometheus.Gauge
+	encounterGauge           prometheus.Gauge
+	raidNotificationsCounter prometheus.Counter
+	raidEncounterGauge       prometheus.Gauge
 }
 
 // newNotificationService creates a ready-to-use NotificationService.
@@ -47,20 +49,24 @@ func newNotificationService(
 	messagesCounter prometheus.Counter,
 	cleanupCounter prometheus.Gauge,
 	encounterGauge prometheus.Gauge,
+	raidNotificationsCounter prometheus.Counter,
+	raidEncounterGauge prometheus.Gauge,
 ) *NotificationService {
 	return &NotificationService{
-		botDB:                botDB,
-		scannerDB:            scannerDB,
-		sender:               sender,
-		gameData:             masterFile,
-		translations:         translationsMap,
-		timezone:             timezone,
-		notificationCache:    make(map[string]map[int64]struct{}),
-		userRateLimitedUntil: make(map[int64]time.Time),
-		notificationsCounter: notificationsCounter,
-		messagesCounter:      messagesCounter,
-		cleanupCounter:       cleanupCounter,
-		encounterGauge:       encounterGauge,
+		botDB:                    botDB,
+		scannerDB:                scannerDB,
+		sender:                   sender,
+		gameData:                 masterFile,
+		translations:             translationsMap,
+		timezone:                 timezone,
+		notificationCache:        make(map[string]map[int64]struct{}),
+		userRateLimitedUntil:     make(map[int64]time.Time),
+		notificationsCounter:     notificationsCounter,
+		messagesCounter:          messagesCounter,
+		cleanupCounter:           cleanupCounter,
+		encounterGauge:           encounterGauge,
+		raidNotificationsCounter: raidNotificationsCounter,
+		raidEncounterGauge:       raidEncounterGauge,
 	}
 }
 
@@ -89,6 +95,20 @@ func (s *NotificationService) addCleanup(amount float64) {
 func (s *NotificationService) setEncounterGauge(count float64) {
 	if s.encounterGauge != nil {
 		s.encounterGauge.Set(count)
+	}
+}
+
+// incRaidNotifications increments the raid notifications counter (nil-safe).
+func (s *NotificationService) incRaidNotifications() {
+	if s.raidNotificationsCounter != nil {
+		s.raidNotificationsCounter.Inc()
+	}
+}
+
+// setRaidEncounterGauge sets the raid encounter gauge (nil-safe).
+func (s *NotificationService) setRaidEncounterGauge(count float64) {
+	if s.raidEncounterGauge != nil {
+		s.raidEncounterGauge.Set(count)
 	}
 }
 
@@ -205,7 +225,6 @@ func (s *NotificationService) sendMessage(userID int64, text, encounterID string
 // sendEncounterNotification delivers a full encounter notification to one user.
 func (s *NotificationService) sendEncounterNotification(user User, encounter EncounterData) {
 	if s.isRateLimited(user.ID) {
-		// log.Printf("⏭️ Skipping notification for Pokémon #%d to %d (rate limited)", encounter.PokemonID, user.ID)
 		return
 	}
 	if _, exists := s.notificationCache[encounter.ID][user.ID]; exists {
@@ -224,16 +243,11 @@ func (s *NotificationService) sendEncounterNotification(user User, encounter Enc
 
 	if !user.OnlyMap && user.Stickers {
 		formSuffix := ""
-		if key := s.resolveFormKey(encounter); key != "" {
+		if key := s.resolveFormKey(encounter.PokemonID, encounter.Form); key != "" {
 			formSuffix = "_f" + key
 		}
 		stickerURL := fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d%s.webp", encounter.PokemonID, formSuffix)
 		if err := s.sendSticker(user.ID, stickerURL, encounter.ID); err != nil {
-			return
-		}
-	}
-	if !user.OnlyMap {
-		if err := s.sendLocation(user.ID, encounter.Lat, encounter.Lon, encounter.ID); err != nil {
 			return
 		}
 	}
@@ -242,6 +256,9 @@ func (s *NotificationService) sendEncounterNotification(user User, encounter Enc
 	body := s.generateNotificationText(user, encounter)
 
 	if !user.OnlyMap {
+		if err := s.sendLocation(user.ID, encounter.Lat, encounter.Lon, encounter.ID); err != nil {
+			return
+		}
 		if err := s.sendMessage(user.ID, title+"\n"+body, encounter.ID); err != nil {
 			return
 		}
@@ -257,7 +274,6 @@ func (s *NotificationService) sendEncounterNotification(user User, encounter Enc
 // and subscription, then fires notifications.
 func (s *NotificationService) filterAndSendEncounters(users FilteredUsers, encounters []EncounterData, activeSubs map[int][]Subscription) {
 	for _, encounter := range encounters {
-
 		type distKey struct {
 			userID  int64
 			maxDist int
@@ -268,7 +284,7 @@ func (s *NotificationService) filterAndSendEncounters(users FilteredUsers, encou
 			if v, ok := distCache[key]; ok {
 				return v
 			}
-			v := withinDistance(user, encounter, maxDist)
+			v := withinDistance(user, encounter.Lat, encounter.Lon, maxDist)
 			distCache[key] = v
 			return v
 		}
@@ -405,7 +421,7 @@ func (s *NotificationService) processEncounters(users FilteredUsers, activeSubs 
 func (s *NotificationService) generateNotificationTitle(user User, encounter EncounterData) string {
 	tr := newTranslator(user.Language)
 	name := tr.PokemonName(encounter.PokemonID)
-	formSuffix := s.buildFormSuffix(encounter, user.Language)
+	formSuffix := s.buildFormSuffix(encounter.PokemonID, encounter.Form, user.Language)
 	genderEmoji := getGenderEmoji(encounter.Gender)
 	cpLabel := tr.T("CP")
 	sizeEmoji := getSizeEmoji(encounter.Size)
@@ -433,13 +449,13 @@ func (s *NotificationService) generateNotificationTitle(user User, encounter Enc
 	)
 }
 
-func (s *NotificationService) buildFormSuffix(encounter EncounterData, language string) string {
-	formKey := s.resolveFormKey(encounter)
+func (s *NotificationService) buildFormSuffix(pokemonID int, formID *int, language string) string {
+	formKey := s.resolveFormKey(pokemonID, formID)
 	if formKey == "" {
 		return ""
 	}
 	// resolveFormKey already validated both the pokemon and form entries exist.
-	form := s.gameData.Pokemon[strconv.Itoa(encounter.PokemonID)].Forms[formKey]
+	form := s.gameData.Pokemon[strconv.Itoa(pokemonID)].Forms[formKey]
 	costumeEmoji := ""
 	if form.IsCostume {
 		costumeEmoji = "👕 "
@@ -448,16 +464,16 @@ func (s *NotificationService) buildFormSuffix(encounter EncounterData, language 
 }
 
 // resolveFormKey returns the form-key string for a non-normal form, or "" if
-// the encounter has no form, the form is unknown, or the form is Normal.
-func (s *NotificationService) resolveFormKey(encounter EncounterData) string {
-	if encounter.Form == nil || *encounter.Form <= 0 {
+// the form is nil, zero, unknown, or Normal.
+func (s *NotificationService) resolveFormKey(pokemonID int, formID *int) string {
+	if formID == nil || *formID <= 0 {
 		return ""
 	}
-	pokemon, exists := s.gameData.Pokemon[strconv.Itoa(encounter.PokemonID)]
+	pokemon, exists := s.gameData.Pokemon[strconv.Itoa(pokemonID)]
 	if !exists {
 		return ""
 	}
-	formKey := strconv.Itoa(*encounter.Form)
+	formKey := strconv.Itoa(*formID)
 	form, exists := pokemon.Forms[formKey]
 	if !exists || form.Name == "Normal" {
 		return ""
@@ -535,7 +551,223 @@ func startNotificationProcessing(stop <-chan struct{}) {
 			case <-time.After(30 * time.Second):
 				notificationService.cleanupMessages(userCache)
 				notificationService.processEncounters(userCache, activeSubscriptions)
+				notificationService.processRaids(userCache, activeRaidSubscriptions)
 			}
 		}
 	}()
+}
+
+// ── Raid notification logic ───────────────────────────────────────────────────
+
+// raidEncounterID returns a stable dedup key for a raid: gymID_endTimestamp.
+func raidEncounterID(gym GymData) string {
+	if gym.RaidEndTimestamp == nil {
+		return gym.ID + "_0"
+	}
+	return fmt.Sprintf("%s_%d", gym.ID, *gym.RaidEndTimestamp)
+}
+
+// sendRaidNotification delivers a full raid notification to one user.
+func (s *NotificationService) sendRaidNotification(user User, gym GymData) {
+	encounterID := raidEncounterID(gym)
+
+	if s.isRateLimited(user.ID) {
+		return
+	}
+	if _, exists := s.notificationCache[encounterID][user.ID]; exists {
+		return
+	}
+
+	raidLevel := 0
+	if gym.RaidLevel != nil {
+		raidLevel = *gym.RaidLevel
+	}
+	pokemonID := 0
+	if gym.RaidPokemonID != nil {
+		pokemonID = *gym.RaidPokemonID
+	}
+	log.Printf("⚔️ Sending raid notification for Pokémon #%d L%d to %d", pokemonID, raidLevel, user.ID)
+
+	if s.notificationCache[encounterID] == nil {
+		s.notificationCache[encounterID] = make(map[int64]struct{})
+		if gym.RaidEndTimestamp != nil {
+			s.botDB.SaveEncounter(encounterID, int64(*gym.RaidEndTimestamp))
+		}
+	}
+	s.notificationCache[encounterID][user.ID] = struct{}{}
+
+	if !user.OnlyMap && user.Stickers {
+		formSuffix := ""
+		if key := s.resolveFormKey(pokemonID, gym.RaidPokemonForm); key != "" {
+			formSuffix = "_f" + key
+		}
+		stickerURL := fmt.Sprintf("https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/%d%s.webp", pokemonID, formSuffix)
+		if err := s.sendSticker(user.ID, stickerURL, encounterID); err != nil {
+			return
+		}
+	}
+
+	title := s.generateRaidNotificationTitle(user, gym)
+	body := s.generateRaidNotificationText(user, gym)
+
+	if !user.OnlyMap {
+		if err := s.sendLocation(user.ID, gym.Lat, gym.Lon, encounterID); err != nil {
+			return
+		}
+		if err := s.sendMessage(user.ID, title+"\n"+body, encounterID); err != nil {
+			return
+		}
+	} else {
+		if err := s.sendVenue(user.ID, gym.Lat, gym.Lon, title, body, encounterID); err != nil {
+			return
+		}
+	}
+	s.incRaidNotifications()
+}
+
+// filterAndSendRaids matches each raid against every applicable user category
+// and fires notifications.
+func (s *NotificationService) filterAndSendRaids(
+	users FilteredUsers,
+	raids []GymData,
+	activeSubs map[int][]RaidSubscription,
+) {
+	for _, gym := range raids {
+		raidLevel := 0
+		if gym.RaidLevel != nil {
+			raidLevel = *gym.RaidLevel
+		}
+		pokemonID := 0
+		if gym.RaidPokemonID != nil {
+			pokemonID = *gym.RaidPokemonID
+		}
+
+		distCache := make(map[int64]bool)
+		inRange := func(user User) bool {
+			if v, ok := distCache[user.ID]; ok {
+				return v
+			}
+			v := withinDistance(user, gym.Lat, gym.Lon, user.MaxDistance)
+			distCache[user.ID] = v
+			return v
+		}
+
+		// Tier 1: AllRaids users — level gate + distance check.
+		for _, user := range users.AllRaids {
+			if user.RaidMinLevel != 0 && user.RaidMinLevel > raidLevel {
+				continue
+			}
+			if !inRange(user) {
+				continue
+			}
+			s.sendRaidNotification(user, gym)
+		}
+
+		// Tier 2: Level-only subscriptions — (userID, 0, raidLevel).
+		if levelSubs, ok := activeSubs[0]; ok {
+			for _, sub := range levelSubs {
+				if sub.RaidLevel != raidLevel {
+					continue
+				}
+				user, ok := users.All[sub.UserID]
+				if !ok {
+					continue
+				}
+				if !inRange(user) {
+					continue
+				}
+				s.sendRaidNotification(user, gym)
+			}
+		}
+
+		// Tier 3: Per-Pokémon subscriptions — (userID, pokemonID, 0|raidLevel).
+		if pokemonID > 0 {
+			if pokemonSubs, ok := activeSubs[pokemonID]; ok {
+				for _, sub := range pokemonSubs {
+					if sub.RaidLevel != 0 && sub.RaidLevel != raidLevel {
+						continue
+					}
+					user, ok := users.All[sub.UserID]
+					if !ok {
+						continue
+					}
+					if !inRange(user) {
+						continue
+					}
+					s.sendRaidNotification(user, gym)
+				}
+			}
+		}
+
+	}
+}
+
+// processRaids fetches active raids from the scanner and dispatches notifications.
+func (s *NotificationService) processRaids(users FilteredUsers, activeSubs map[int][]RaidSubscription) {
+	raids, err := s.scannerDB.GetActiveRaids()
+	if err != nil {
+		log.Printf("❌ Failed to fetch active raids: %v", err)
+		return
+	}
+	s.setRaidEncounterGauge(float64(len(raids)))
+	log.Printf("✅ Found %d active raids", len(raids))
+	s.filterAndSendRaids(users, raids, activeSubs)
+}
+
+// ── Raid notification text generation ────────────────────────────────────────
+
+func (s *NotificationService) generateRaidNotificationTitle(user User, gym GymData) string {
+	tr := newTranslator(user.Language)
+	raidLevel := 0
+	if gym.RaidLevel != nil {
+		raidLevel = *gym.RaidLevel
+	}
+	pokemonID := 0
+	if gym.RaidPokemonID != nil {
+		pokemonID = *gym.RaidPokemonID
+	}
+	name := tr.PokemonName(pokemonID)
+	formSuffix := s.buildFormSuffix(pokemonID, gym.RaidPokemonForm, user.Language)
+	gymName := gym.ID
+	if gym.Name != nil {
+		gymName = *gym.Name
+	}
+	return fmt.Sprintf("*⚔️ %s%s (%s) @ %s*", name, formSuffix, tr.RaidLevelName(raidLevel), gymName)
+}
+
+func (s *NotificationService) generateRaidNotificationText(user User, gym GymData) string {
+	var sb strings.Builder
+	tr := newTranslator(user.Language)
+
+	if user.Latitude != 0 && user.Longitude != 0 {
+		distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(gym.Lat), float64(gym.Lon))
+		sb.WriteString(formatDistance(distance))
+	}
+
+	if gym.RaidEndTimestamp != nil {
+		endTime := time.Unix(int64(*gym.RaidEndTimestamp), 0).In(s.timezone)
+		timeLeft := time.Until(endTime)
+		sb.WriteString(fmt.Sprintf("⏳ %s (%s)\n",
+			endTime.Format(time.TimeOnly),
+			timeLeft.Truncate(time.Second).String()))
+	}
+
+	if gym.RaidPokemonMove1 != nil && gym.RaidPokemonMove2 != nil {
+		sb.WriteString(fmt.Sprintf("💥 %s / %s\n",
+			tr.MoveName(*gym.RaidPokemonMove1),
+			tr.MoveName(*gym.RaidPokemonMove2)))
+	}
+
+	// Team line: team + EX flag (gym name is already in the title).
+	teamName := tr.TeamName(0)
+	if gym.TeamID != nil {
+		teamName = tr.TeamName(*gym.TeamID)
+	}
+	exFlag := ""
+	if gym.ExRaidEligible != nil && *gym.ExRaidEligible != 0 {
+		exFlag = " ✨EX"
+	}
+	sb.WriteString(fmt.Sprintf("🏟️ %s%s", teamName, exFlag))
+
+	return sb.String()
 }

@@ -2,20 +2,22 @@ package main
 
 // User represents a bot user with their preferences
 type User struct {
-	ID          int64   `gorm:"primaryKey;autoIncrement:false"`
-	Notify      bool    `gorm:"not null;default:true"`
-	Language    string  `gorm:"not null;default:'de';type:varchar(5)"`
-	Stickers    bool    `gorm:"not null;default:true"`
-	OnlyMap     bool    `gorm:"not null;default:false"`
-	Cleanup     bool    `gorm:"not null;default:true"`
-	Latitude    float32 `gorm:"not null;default:0;type:double(14,10)"`
-	Longitude   float32 `gorm:"not null;default:0;type:double(14,10)"`
-	MaxDistance int     `gorm:"not null;default:0;type:mediumint(6)"`
-	HundoIV     bool    `gorm:"not null;default:false"`
-	ZeroIV      bool    `gorm:"not null;default:false"`
-	TopPVP      bool    `gorm:"not null;default:false"`
-	MinIV       int     `gorm:"not null;default:0;type:tinyint(3)"`
-	MinLevel    int     `gorm:"not null;default:0;type:tinyint(2)"`
+	ID           int64   `gorm:"primaryKey;autoIncrement:false"`
+	Notify       bool    `gorm:"not null;default:true"`
+	Language     string  `gorm:"not null;default:'de';type:varchar(5)"`
+	Stickers     bool    `gorm:"not null;default:true"`
+	OnlyMap      bool    `gorm:"not null;default:false"`
+	Cleanup      bool    `gorm:"not null;default:true"`
+	Latitude     float32 `gorm:"not null;default:0;type:double(14,10)"`
+	Longitude    float32 `gorm:"not null;default:0;type:double(14,10)"`
+	MaxDistance  int     `gorm:"not null;default:0;type:mediumint(6)"`
+	HundoIV      bool    `gorm:"not null;default:false"`
+	ZeroIV       bool    `gorm:"not null;default:false"`
+	TopPVP       bool    `gorm:"not null;default:false"`
+	MinIV        int     `gorm:"not null;default:0;type:tinyint(3)"`
+	MinLevel     int     `gorm:"not null;default:0;type:tinyint(2)"`
+	AllRaids     bool    `gorm:"not null;default:false"`
+	RaidMinLevel int     `gorm:"not null;default:0;type:tinyint(2)"`
 }
 
 // FilteredUsers contains users organized by notification type
@@ -25,6 +27,19 @@ type FilteredUsers struct {
 	ZeroIV   []User
 	TopPVP   []User
 	Channels []User
+	AllRaids []User
+}
+
+// RaidSubscription represents a user's subscription to raids by Pokémon and/or level.
+// Composite PK (UserID, PokemonID, RaidLevel):
+//   - (userID, pokemonID, 0)     → specific Pokémon at any level
+//   - (userID, pokemonID, level) → specific Pokémon at a specific level
+//   - (userID, 0, level)         → all Pokémon at a specific level
+//   - (userID, 0, 0)             → invalid, rejected by handlers
+type RaidSubscription struct {
+	UserID    int64 `gorm:"primaryKey;autoIncrement:false"`
+	PokemonID int   `gorm:"primaryKey;autoIncrement:false;type:smallint(5)"`
+	RaidLevel int   `gorm:"primaryKey;autoIncrement:false;type:tinyint(2)"`
 }
 
 // Subscription represents a user's subscription to a specific Pokémon
@@ -38,7 +53,7 @@ type Subscription struct {
 
 // Encounter represents a tracked Pokémon encounter
 type Encounter struct {
-	ID         string `gorm:"primaryKey;autoIncrement:false;type:varchar(25)"`
+	ID         string `gorm:"primaryKey;autoIncrement:false;type:varchar(60)"`
 	Expiration int    `gorm:"index;not null;type:int(10)"`
 }
 
@@ -46,7 +61,7 @@ type Encounter struct {
 type Message struct {
 	ChatID      int64  `gorm:"primaryKey;autoIncrement:false"`
 	MessageID   int    `gorm:"primaryKey;autoIncrement:false"`
-	EncounterID string `gorm:"index;not null;type:varchar(25)"`
+	EncounterID string `gorm:"index;not null;type:varchar(60)"`
 }
 
 // EncounterData represents the complete Pokémon encounter data from the scanner database
@@ -96,15 +111,15 @@ type EncounterData struct {
 // GymData represents gym information for location services
 type GymData struct {
 	ID                     string
-	Lat                    float64
-	Lon                    float64
+	Lat                    float32
+	Lon                    float32
 	Name                   *string
 	Url                    *string
 	LastModifiedTimestamp  *int
 	RaidEndTimestamp       *int
 	RaidSpawnTimestamp     *int
 	RaidBattleTimestamp    *int
-	Updated                int64
+	Updated                int
 	RaidPokemonID          *int
 	GuardingPokemonID      *int
 	GuardingPokemonDisplay *string
@@ -123,7 +138,7 @@ type GymData struct {
 	CellID                 *int
 	Deleted                bool
 	TotalCp                *int
-	FirstSeenTimestamp     int64
+	FirstSeenTimestamp     int
 	RaidPokemonGender      *int
 	SponsorID              *int
 	PartnerID              *string

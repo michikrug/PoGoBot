@@ -120,14 +120,14 @@ func TestIsPermanentTelegramError_GenericError(t *testing.T) {
 func TestBuildFormSuffix_NilForm(t *testing.T) {
 	svc := newTestService(nil, &mockBotSender{})
 	enc := minimalEncounter("e1", 25) // Form is nil
-	assert.Equal(t, "", svc.buildFormSuffix(enc, "en"))
+	assert.Equal(t, "", svc.buildFormSuffix(enc.PokemonID, enc.Form, "en"))
 }
 
 func TestBuildFormSuffix_FormZero(t *testing.T) {
 	svc := newTestService(nil, &mockBotSender{})
 	enc := minimalEncounter("e1", 25)
 	enc.Form = pointerToInt(0)
-	assert.Equal(t, "", svc.buildFormSuffix(enc, "en"))
+	assert.Equal(t, "", svc.buildFormSuffix(enc.PokemonID, enc.Form, "en"))
 }
 
 func TestBuildFormSuffix_NormalForm(t *testing.T) {
@@ -135,7 +135,7 @@ func TestBuildFormSuffix_NormalForm(t *testing.T) {
 	svc := newTestService(nil, &mockBotSender{})
 	enc := minimalEncounter("e1", 25)
 	enc.Form = pointerToInt(1)
-	assert.Equal(t, "", svc.buildFormSuffix(enc, "en"))
+	assert.Equal(t, "", svc.buildFormSuffix(enc.PokemonID, enc.Form, "en"))
 }
 
 func TestBuildFormSuffix_NamedForm(t *testing.T) {
@@ -143,7 +143,7 @@ func TestBuildFormSuffix_NamedForm(t *testing.T) {
 	svc := newTestService(nil, &mockBotSender{})
 	enc := minimalEncounter("e1", 25)
 	enc.Form = pointerToInt(2)
-	suffix := svc.buildFormSuffix(enc, "en")
+	suffix := svc.buildFormSuffix(enc.PokemonID, enc.Form, "en")
 	assert.Contains(t, suffix, "Halloween")
 	assert.Contains(t, suffix, "👕")
 }
@@ -152,14 +152,12 @@ func TestBuildFormSuffix_UnknownPokemon(t *testing.T) {
 	svc := newTestService(nil, &mockBotSender{})
 	enc := minimalEncounter("e1", 9999)
 	enc.Form = pointerToInt(1)
-	assert.Equal(t, "", svc.buildFormSuffix(enc, "en"))
+	assert.Equal(t, "", svc.buildFormSuffix(enc.PokemonID, enc.Form, "en"))
 }
 
 // ── generateNotificationTitle ─────────────────────────────────────────────────
 
 func TestGenerateNotificationTitle_ContainsPokemonName(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("e1", 25)
@@ -168,8 +166,6 @@ func TestGenerateNotificationTitle_ContainsPokemonName(t *testing.T) {
 }
 
 func TestGenerateNotificationTitle_ContainsIVAndLevel(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("e1", 25)
@@ -179,8 +175,6 @@ func TestGenerateNotificationTitle_ContainsIVAndLevel(t *testing.T) {
 }
 
 func TestGenerateNotificationTitle_EnglishUsesCPLabel(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	user.Language = "en"
@@ -191,8 +185,6 @@ func TestGenerateNotificationTitle_EnglishUsesCPLabel(t *testing.T) {
 }
 
 func TestGenerateNotificationTitle_GermanUsesWPLabel(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	user.Language = "de"
@@ -202,8 +194,6 @@ func TestGenerateNotificationTitle_GermanUsesWPLabel(t *testing.T) {
 }
 
 func TestGenerateNotificationTitle_IncludesSizeEmoji(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("e1", 25)
@@ -215,8 +205,6 @@ func TestGenerateNotificationTitle_IncludesSizeEmoji(t *testing.T) {
 // ── generateNotificationText ──────────────────────────────────────────────────
 
 func TestGenerateNotificationText_ContainsExpireTime(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("e1", 25)
@@ -227,8 +215,6 @@ func TestGenerateNotificationText_ContainsExpireTime(t *testing.T) {
 }
 
 func TestGenerateNotificationText_ContainsMoves(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("e1", 25)
@@ -240,8 +226,6 @@ func TestGenerateNotificationText_ContainsMoves(t *testing.T) {
 }
 
 func TestGenerateNotificationText_ContainsDistance(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	// User ~111 m from encounter.
 	user := notifyUser(1)
@@ -256,8 +240,6 @@ func TestGenerateNotificationText_ContainsDistance(t *testing.T) {
 }
 
 func TestGenerateNotificationText_NoDistanceWhenNoUserLocation(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1) // Latitude/Longitude both 0
 	enc := minimalEncounter("e1", 25)
@@ -292,8 +274,6 @@ func setupBotDbForEncounter(botDB *mockBotDB) {
 }
 
 func TestFilterAndSendEncounters_HundoIV_NotifiesHundoUsers(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -319,8 +299,6 @@ func TestFilterAndSendEncounters_HundoIV_NotifiesHundoUsers(t *testing.T) {
 }
 
 func TestFilterAndSendEncounters_ZeroIV_NotifiesZeroUsers(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -345,8 +323,6 @@ func TestFilterAndSendEncounters_ZeroIV_NotifiesZeroUsers(t *testing.T) {
 }
 
 func TestFilterAndSendEncounters_Subscription_AboveMinIV_Notifies(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -371,8 +347,6 @@ func TestFilterAndSendEncounters_Subscription_AboveMinIV_Notifies(t *testing.T) 
 }
 
 func TestFilterAndSendEncounters_Subscription_BelowMinIV_NoNotification(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	sender := &mockBotSender{}
 
@@ -394,8 +368,6 @@ func TestFilterAndSendEncounters_Subscription_BelowMinIV_NoNotification(t *testi
 }
 
 func TestFilterAndSendEncounters_DeduplicatesNotifications(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -426,8 +398,6 @@ func TestFilterAndSendEncounters_DeduplicatesNotifications(t *testing.T) {
 }
 
 func TestFilterAndSendEncounters_OutOfDistance_NoNotification(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	sender := &mockBotSender{}
 
@@ -456,8 +426,6 @@ func TestFilterAndSendEncounters_OutOfDistance_NoNotification(t *testing.T) {
 }
 
 func TestFilterAndSendEncounters_Channel_AboveThreshold_Notifies(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -641,8 +609,6 @@ func encounterWithNilIVLevel(id string, pokemonID int) EncounterData {
 }
 
 func TestFilterAndSendEncounters_Channel_NilIV_NoPanic(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	sender := &mockBotSender{}
 	svc := newTestService(nil, sender)
@@ -665,8 +631,6 @@ func TestFilterAndSendEncounters_Channel_NilIV_NoPanic(t *testing.T) {
 }
 
 func TestFilterAndSendEncounters_Subscription_NilIV_SkipsThresholdCheck(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -692,8 +656,6 @@ func TestFilterAndSendEncounters_Subscription_NilIV_SkipsThresholdCheck(t *testi
 }
 
 func TestFilterAndSendEncounters_Subscription_NilIV_WithMinIV_Skips(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	sender := &mockBotSender{}
 	svc := newTestService(nil, sender)
@@ -716,8 +678,6 @@ func TestFilterAndSendEncounters_Subscription_NilIV_WithMinIV_Skips(t *testing.T
 }
 
 func TestGenerateNotificationTitle_NilFields_ReturnsSafeFallback(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := encounterWithNilIVLevel("nil_title", 25)
@@ -732,8 +692,6 @@ func TestGenerateNotificationTitle_NilFields_ReturnsSafeFallback(t *testing.T) {
 }
 
 func TestGenerateNotificationTitle_NilCP_ReturnsSafeFallback(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("nil_cp", 25)
@@ -747,8 +705,6 @@ func TestGenerateNotificationTitle_NilCP_ReturnsSafeFallback(t *testing.T) {
 }
 
 func TestGenerateNotificationText_NilExpireTimestamp_NoPanic(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("nil_expire", 25)
@@ -763,8 +719,6 @@ func TestGenerateNotificationText_NilExpireTimestamp_NoPanic(t *testing.T) {
 }
 
 func TestSendEncounterNotification_NilExpireTimestamp_NoPanic(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -793,7 +747,7 @@ func TestNewNotificationService_FieldsInitialised(t *testing.T) {
 	tr := testTranslations()
 	tz := time.UTC
 
-	svc := newNotificationService(db, scanDB, sender, &mf, tr, tz, nil, nil, nil, nil)
+	svc := newNotificationService(db, scanDB, sender, &mf, tr, tz, nil, nil, nil, nil, nil, nil)
 
 	require.NotNil(t, svc)
 	assert.NotNil(t, svc.notificationCache)
@@ -811,7 +765,7 @@ func TestNewNotificationService_WithPrometheusCounters(t *testing.T) {
 	counter := prometheus.NewCounter(prometheus.CounterOpts{Name: "test_counter"})
 	gauge := prometheus.NewGauge(prometheus.GaugeOpts{Name: "test_gauge"})
 
-	svc := newNotificationService(db, scanDB, sender, &mf, tr, time.UTC, counter, counter, gauge, gauge)
+	svc := newNotificationService(db, scanDB, sender, &mf, tr, time.UTC, counter, counter, gauge, gauge, nil, nil)
 
 	require.NotNil(t, svc)
 	assert.NotNil(t, svc.notificationsCounter)
@@ -1040,8 +994,6 @@ func TestSendMessage_Failure_ReturnsError(t *testing.T) {
 // ── sendEncounterNotification with stickers ───────────────────────────────────
 
 func TestSendEncounterNotification_Stickers_SendsStickerFirst(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -1061,8 +1013,6 @@ func TestSendEncounterNotification_Stickers_SendsStickerFirst(t *testing.T) {
 }
 
 func TestSendEncounterNotification_StickerFails_AbortsEarly(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -1083,8 +1033,6 @@ func TestSendEncounterNotification_StickerFails_AbortsEarly(t *testing.T) {
 }
 
 func TestSendEncounterNotification_LocationFails_AbortsEarly(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -1104,8 +1052,6 @@ func TestSendEncounterNotification_LocationFails_AbortsEarly(t *testing.T) {
 }
 
 func TestSendEncounterNotification_MessageFails_AbortsEarly(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -1132,8 +1078,6 @@ func TestSendEncounterNotification_MessageFails_AbortsEarly(t *testing.T) {
 // ── sendEncounterNotification OnlyMap path ────────────────────────────────────
 
 func TestSendEncounterNotification_OnlyMap_SendsVenue(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -1155,8 +1099,6 @@ func TestSendEncounterNotification_OnlyMap_SendsVenue(t *testing.T) {
 }
 
 func TestSendEncounterNotification_OnlyMap_VenueFails_AbortsEarly(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -1177,8 +1119,6 @@ func TestSendEncounterNotification_OnlyMap_VenueFails_AbortsEarly(t *testing.T) 
 // ── filterAndSendEncounters: TopPVP ──────────────────────────────────────────
 
 func TestFilterAndSendEncounters_TopPVP_Top3_Notifies(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -1204,8 +1144,6 @@ func TestFilterAndSendEncounters_TopPVP_Top3_Notifies(t *testing.T) {
 }
 
 func TestFilterAndSendEncounters_TopPVP_Rank4_NoNotification(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	sender := &mockBotSender{}
 	svc := newTestService(nil, sender)
@@ -1295,8 +1233,6 @@ func TestFilterAndSendEncounters_Channel_BelowThreshold_NoNotification(t *testin
 // ── filterAndSendEncounters: subscription falls back to user-level thresholds ──
 
 func TestFilterAndSendEncounters_Subscription_FallsBackToUserMinIV(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	sender := &mockBotSender{}
@@ -1320,8 +1256,6 @@ func TestFilterAndSendEncounters_Subscription_FallsBackToUserMinIV(t *testing.T)
 }
 
 func TestFilterAndSendEncounters_Subscription_FallsBackToUserMinLevel(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	sender := &mockBotSender{}
 	svc := newTestService(nil, sender)
@@ -1401,8 +1335,6 @@ func TestProcessEncounters_ScannerError_NoNotifications(t *testing.T) {
 }
 
 func TestProcessEncounters_Success_DispatchesNotifications(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 
 	db := &mockBotDB{}
 	scanDB := &mockScannerDB{}
@@ -1449,8 +1381,6 @@ func TestFormatDistance_ExactlyOneKm_UsesKilometres(t *testing.T) {
 // ── generateNotificationText: PVP data ───────────────────────────────────────
 
 func TestGenerateNotificationText_PVPData_IncludesLeagueRank(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("pvp-text", 25)
@@ -1466,8 +1396,6 @@ func TestGenerateNotificationText_PVPData_IncludesLeagueRank(t *testing.T) {
 }
 
 func TestGenerateNotificationText_PVPData_Rank4_NotIncluded(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	user := notifyUser(1)
 	enc := minimalEncounter("pvp-rank4-text", 25)
@@ -1483,8 +1411,6 @@ func TestGenerateNotificationText_PVPData_Rank4_NotIncluded(t *testing.T) {
 // ── generateNotificationText: km distance branch ─────────────────────────────
 
 func TestGenerateNotificationText_LargeDistance_ShowsKilometres(t *testing.T) {
-	gameData = testGameData()
-	translations = testTranslations()
 	svc := newTestService(nil, &mockBotSender{})
 	// User at Berlin, encounter at Munich (~504 km).
 	user := notifyUser(1)
@@ -1498,4 +1424,729 @@ func TestGenerateNotificationText_LargeDistance_ShowsKilometres(t *testing.T) {
 
 	assert.Contains(t, text, "📍")
 	assert.Contains(t, text, "km")
+}
+
+// ── Translator.RaidLevelName ──────────────────────────────────────────────────
+
+func TestRaidLevelName_KnownLevel(t *testing.T) {
+	translations = testTranslations()
+	translations["en"] = map[string]string{"raid_5": "Level 5"}
+	assert.Equal(t, "Level 5", newTranslator("en").RaidLevelName(5))
+}
+
+func TestRaidLevelName_UnknownLevel_FallsBack(t *testing.T) {
+	translations = testTranslations()
+	assert.Equal(t, "L3", newTranslator("en").RaidLevelName(3))
+}
+
+// ── Translator.TeamName ───────────────────────────────────────────────────────
+
+func TestTeamName_KnownTeam(t *testing.T) {
+	translations = testTranslations()
+	translations["en"] = map[string]string{"team_1": "Team Blue"}
+	assert.Equal(t, "Team Blue", newTranslator("en").TeamName(1))
+}
+
+func TestTeamName_UnknownTeam_FallsBack(t *testing.T) {
+	translations = testTranslations()
+	assert.Equal(t, "Team 99", newTranslator("en").TeamName(99))
+}
+
+// ── raidEncounterID ────────────────────────────────────────────────────────────
+
+func TestRaidEncounterID_WithEndTimestamp(t *testing.T) {
+	end := int(1700000000)
+	gym := GymData{ID: "gym-abc", RaidEndTimestamp: &end}
+	assert.Equal(t, "gym-abc_1700000000", raidEncounterID(gym))
+}
+
+func TestRaidEncounterID_NilEndTimestamp(t *testing.T) {
+	gym := GymData{ID: "gym-xyz", RaidEndTimestamp: nil}
+	assert.Equal(t, "gym-xyz_0", raidEncounterID(gym))
+}
+
+// ── generateRaidNotificationTitle ────────────────────────────────────────────
+
+func TestGenerateRaidNotificationTitle_ContainsNameAndLevel(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+
+	level := 5
+	pokemonID := 25
+	gymName := "Central Park"
+	gym := GymData{
+		ID:            "gym1",
+		Name:          &gymName,
+		RaidLevel:     &level,
+		RaidPokemonID: &pokemonID,
+	}
+	title := svc.generateRaidNotificationTitle(notifyUser(1), gym)
+	assert.Contains(t, title, "Pikachu")
+	assert.Contains(t, title, "L5")
+	assert.Contains(t, title, "Central Park")
+	assert.Contains(t, title, "⚔️")
+}
+
+func TestGenerateRaidNotificationTitle_NilGymName_FallsBackToID(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+
+	level := 3
+	pokemonID := 1
+	gym := GymData{
+		ID:            "gym-id-only",
+		Name:          nil,
+		RaidLevel:     &level,
+		RaidPokemonID: &pokemonID,
+	}
+	title := svc.generateRaidNotificationTitle(notifyUser(1), gym)
+	assert.Contains(t, title, "gym-id-only")
+}
+
+func TestGenerateRaidNotificationTitle_NilLevelAndPokemon(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+
+	gymName := "Arena"
+	gym := GymData{ID: "g1", Name: &gymName}
+	assert.NotPanics(t, func() {
+		title := svc.generateRaidNotificationTitle(notifyUser(1), gym)
+		assert.Contains(t, title, "Arena")
+	})
+}
+
+func TestGenerateRaidNotificationTitle_NamedForm_IncludesFormSuffix(t *testing.T) {
+	// Pikachu form 2 is "Halloween" (IsCostume=true) in testGameData.
+	svc := newTestService(nil, &mockBotSender{})
+
+	level := 5
+	pokemonID := 25
+	form := 2
+	gymName := "Arena"
+	gym := GymData{
+		ID:              "g2",
+		Name:            &gymName,
+		RaidLevel:       &level,
+		RaidPokemonID:   &pokemonID,
+		RaidPokemonForm: &form,
+	}
+	title := svc.generateRaidNotificationTitle(notifyUser(1), gym)
+	assert.Contains(t, title, "Pikachu")
+	assert.Contains(t, title, "Halloween")
+	assert.Contains(t, title, "👕")
+}
+
+// ── generateRaidNotificationText ─────────────────────────────────────────────
+
+func testRaidGym(id string, level, pokemonID int, moves bool) GymData {
+	end := int(1700000000 + 3600)
+	teamID := 1
+	gymName := "Test Arena"
+	g := GymData{
+		ID:               id,
+		Name:             &gymName,
+		Lat:              48.137,
+		Lon:              11.575,
+		RaidLevel:        &level,
+		RaidPokemonID:    &pokemonID,
+		RaidEndTimestamp: &end,
+		TeamID:           &teamID,
+	}
+	if moves {
+		m1, m2 := 200, 13
+		g.RaidPokemonMove1 = &m1
+		g.RaidPokemonMove2 = &m2
+	}
+	return g
+}
+
+func TestGenerateRaidNotificationText_ContainsEndTime(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+
+	gym := testRaidGym("g1", 5, 25, false)
+	text := svc.generateRaidNotificationText(notifyUser(1), gym)
+	assert.Contains(t, text, "⏳")
+}
+
+func TestGenerateRaidNotificationText_ContainsMoves(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+
+	gym := testRaidGym("g2", 5, 25, true)
+	text := svc.generateRaidNotificationText(notifyUser(1), gym)
+	assert.Contains(t, text, "Thunderbolt")
+	assert.Contains(t, text, "Wrap")
+	assert.Contains(t, text, "💥")
+}
+
+func TestGenerateRaidNotificationText_ContainsTeam(t *testing.T) {
+	translations["en"] = map[string]string{"team_1": "Team Blue"}
+	svc := newTestService(nil, &mockBotSender{})
+
+	gym := testRaidGym("g3", 5, 25, false)
+	text := svc.generateRaidNotificationText(notifyUser(1), gym)
+	assert.Contains(t, text, "🏟️")
+	assert.Contains(t, text, "Team Blue")
+	assert.NotContains(t, text, "Test Arena") // gym name belongs in the title, not the body
+}
+
+func TestGenerateRaidNotificationText_EXFlag(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+
+	gym := testRaidGym("g4", 5, 25, false)
+	exVal := 1
+	gym.ExRaidEligible = &exVal
+	text := svc.generateRaidNotificationText(notifyUser(1), gym)
+	assert.Contains(t, text, "✨EX")
+}
+
+func TestGenerateRaidNotificationText_NoExFlag_WhenZero(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+
+	gym := testRaidGym("g5", 5, 25, false)
+	exVal := 0
+	gym.ExRaidEligible = &exVal
+	text := svc.generateRaidNotificationText(notifyUser(1), gym)
+	assert.NotContains(t, text, "EX")
+}
+
+func TestGenerateRaidNotificationText_ContainsDistance(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+
+	user := notifyUser(1)
+	user.Latitude = 48.0
+	user.Longitude = 11.0
+	gym := testRaidGym("g6", 5, 25, false)
+	gym.Lat = 48.001
+	gym.Lon = 11.0
+	text := svc.generateRaidNotificationText(user, gym)
+	assert.Contains(t, text, "📍")
+}
+
+func TestGenerateRaidNotificationText_NilEndTimestamp_NoPanic(t *testing.T) {
+	svc := newTestService(nil, &mockBotSender{})
+
+	gym := testRaidGym("g7", 5, 25, false)
+	gym.RaidEndTimestamp = nil
+	assert.NotPanics(t, func() {
+		text := svc.generateRaidNotificationText(notifyUser(1), gym)
+		assert.NotContains(t, text, "⏳")
+	})
+}
+
+// ── sendRaidNotification ──────────────────────────────────────────────────────
+
+func TestSendRaidNotification_SendsMessagesToUser(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+	user := notifyUser(1)
+	gym := testRaidGym("gym-send", 5, 25, false)
+
+	svc.sendRaidNotification(user, gym)
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+func TestSendRaidNotification_Deduplicates(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+	user := notifyUser(1)
+	gym := testRaidGym("gym-dedup", 5, 25, false)
+
+	svc.sendRaidNotification(user, gym)
+	first := sendCallCount(sender)
+	svc.sendRaidNotification(user, gym)
+	second := sendCallCount(sender)
+
+	assert.Equal(t, first, second, "second call should be deduplicated")
+}
+
+func TestSendRaidNotification_WithStickers_SendsStickerFirst(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+	user := notifyUser(1)
+	user.Stickers = true
+	gym := testRaidGym("gym-sticker", 5, 25, false)
+
+	svc.sendRaidNotification(user, gym)
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 3)
+}
+
+func TestSendRaidNotification_WithStickers_NamedForm_UsesStickerFormURL(t *testing.T) {
+	// Pikachu form 2 ("Halloween") should produce pokemon/25_f2.webp sticker URL.
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+	user := notifyUser(1)
+	user.Stickers = true
+
+	form := 2
+	gym := testRaidGym("gym-sticker-form", 5, 25, false)
+	gym.RaidPokemonForm = &form
+
+	svc.sendRaidNotification(user, gym)
+
+	// Find the sticker send call and verify its URL contains the form suffix.
+	found := false
+	for _, call := range sender.Calls {
+		if sticker, ok := call.Arguments[1].(*telebot.Sticker); ok {
+			assert.Contains(t, sticker.File.FileURL, "_f2")
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected a sticker send call")
+}
+
+func TestSendRaidNotification_OnlyMap_SendsVenue(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	db.On("SaveEncounter", mock.Anything, mock.Anything).Return()
+	db.On("SaveMessage", mock.Anything, mock.Anything, mock.Anything).Return()
+	fakeMsg := &telebot.Message{ID: 5}
+	sender.On("Send", mock.Anything, mock.Anything).Return(fakeMsg, nil)
+
+	svc := newTestService(db, sender)
+	user := notifyUser(1)
+	user.OnlyMap = true
+	gym := testRaidGym("gym-onlymap", 5, 25, false)
+
+	svc.sendRaidNotification(user, gym)
+
+	// OnlyMap sends exactly one message (venue), no sticker, no separate location.
+	assert.Equal(t, 1, sendCallCount(sender))
+}
+
+func TestSendRaidNotification_OnlyMap_VenueFails_AbortsEarly(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	db.On("SaveEncounter", mock.Anything, mock.Anything).Return()
+	sender.On("Send", mock.Anything, mock.Anything).Return(nil, errors.New("venue fail"))
+
+	svc := newTestService(db, sender)
+	user := notifyUser(1)
+	user.OnlyMap = true
+	gym := testRaidGym("gym-onlymap-fail", 5, 25, false)
+
+	svc.sendRaidNotification(user, gym)
+
+	assert.Equal(t, 1, sendCallCount(sender))
+}
+
+// ── filterAndSendRaids ────────────────────────────────────────────────────────
+
+func TestFilterAndSendRaids_AllRaidsUser_Notifies(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+
+	user := notifyUser(50)
+	user.AllRaids = true
+	gym := testRaidGym("allraids-gym", 5, 25, false)
+
+	users := FilteredUsers{
+		All:      map[int64]User{50: user},
+		AllRaids: []User{user},
+	}
+	svc.filterAndSendRaids(users, []GymData{gym}, map[int][]RaidSubscription{})
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+func TestFilterAndSendRaids_AllRaidsUser_BelowMinLevel_NoNotification(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	user := notifyUser(51)
+	user.AllRaids = true
+	user.RaidMinLevel = 5 // only L5+
+
+	level := 3
+	pokemonID := 25
+	gymName := "Arena"
+	end := int(1700000000)
+	gym := GymData{
+		ID:               "low-level-gym",
+		Name:             &gymName,
+		Lat:              48.0,
+		Lon:              11.0,
+		RaidLevel:        &level,
+		RaidPokemonID:    &pokemonID,
+		RaidEndTimestamp: &end,
+	}
+
+	users := FilteredUsers{
+		All:      map[int64]User{51: user},
+		AllRaids: []User{user},
+	}
+	svc.filterAndSendRaids(users, []GymData{gym}, map[int][]RaidSubscription{})
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestFilterAndSendRaids_LevelOnlySub_Notifies(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+
+	user := notifyUser(52)
+	gym := testRaidGym("level-sub-gym", 5, 25, false)
+
+	users := FilteredUsers{All: map[int64]User{52: user}}
+	subs := map[int][]RaidSubscription{
+		0: {{UserID: 52, PokemonID: 0, RaidLevel: 5}},
+	}
+
+	svc.filterAndSendRaids(users, []GymData{gym}, subs)
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+func TestFilterAndSendRaids_LevelOnlySub_WrongLevel_NoNotification(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	user := notifyUser(53)
+	gym := testRaidGym("level-sub-wrong", 3, 25, false)
+
+	users := FilteredUsers{All: map[int64]User{53: user}}
+	subs := map[int][]RaidSubscription{
+		0: {{UserID: 53, PokemonID: 0, RaidLevel: 5}}, // sub is L5, gym is L3
+	}
+
+	svc.filterAndSendRaids(users, []GymData{gym}, subs)
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestFilterAndSendRaids_PokemonSub_AnyLevel_Notifies(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+
+	user := notifyUser(54)
+	gym := testRaidGym("pokemon-sub-gym", 5, 25, false)
+
+	users := FilteredUsers{All: map[int64]User{54: user}}
+	subs := map[int][]RaidSubscription{
+		25: {{UserID: 54, PokemonID: 25, RaidLevel: 0}}, // any level
+	}
+
+	svc.filterAndSendRaids(users, []GymData{gym}, subs)
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+func TestFilterAndSendRaids_PokemonSub_SpecificLevel_Notifies(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+
+	user := notifyUser(55)
+	gym := testRaidGym("pokemon-sub-exact", 5, 25, false)
+
+	users := FilteredUsers{All: map[int64]User{55: user}}
+	subs := map[int][]RaidSubscription{
+		25: {{UserID: 55, PokemonID: 25, RaidLevel: 5}},
+	}
+
+	svc.filterAndSendRaids(users, []GymData{gym}, subs)
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+func TestFilterAndSendRaids_PokemonSub_WrongLevel_NoNotification(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	user := notifyUser(56)
+	gym := testRaidGym("pokemon-sub-wrong", 3, 25, false)
+
+	users := FilteredUsers{All: map[int64]User{56: user}}
+	subs := map[int][]RaidSubscription{
+		25: {{UserID: 56, PokemonID: 25, RaidLevel: 5}}, // L5 sub but gym is L3
+	}
+
+	svc.filterAndSendRaids(users, []GymData{gym}, subs)
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+// TestFilterAndSendRaids_Channel_AllRaids_Notifies verifies that a channel
+// present in AllRaids (Tier 1) receives raid notifications.
+func TestFilterAndSendRaids_Channel_AllRaids_Notifies(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+
+	user := notifyUser(-1001234567890)
+	user.AllRaids = true
+	user.RaidMinLevel = 0 // all levels
+	gym := testRaidGym("channel-allraids-gym", 5, 25, false)
+
+	users := FilteredUsers{
+		All:      map[int64]User{-1001234567890: user},
+		AllRaids: []User{user},
+		Channels: []User{user},
+	}
+
+	svc.filterAndSendRaids(users, []GymData{gym}, map[int][]RaidSubscription{})
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+// TestFilterAndSendRaids_Channel_LevelSub_Notifies verifies that a channel
+// with a level-only RaidSubscription (Tier 2) receives the matching raid.
+func TestFilterAndSendRaids_Channel_LevelSub_Notifies(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+
+	channelID := int64(-1001234567890)
+	user := notifyUser(channelID)
+	gym := testRaidGym("channel-levelsub-gym", 5, 25, false)
+
+	users := FilteredUsers{
+		All:      map[int64]User{channelID: user},
+		Channels: []User{user},
+	}
+	subs := map[int][]RaidSubscription{
+		0: {{UserID: channelID, PokemonID: 0, RaidLevel: 5}},
+	}
+
+	svc.filterAndSendRaids(users, []GymData{gym}, subs)
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+// TestFilterAndSendRaids_Channel_NoSubsNoAllRaids_NoNotification verifies that
+// a channel with neither AllRaids nor any subscription receives nothing, even
+// when its RaidMinLevel is zero (the default).
+func TestFilterAndSendRaids_Channel_NoSubsNoAllRaids_NoNotification(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	channelID := int64(-1001234567890)
+	user := notifyUser(channelID)
+	user.RaidMinLevel = 0 // default — must NOT trigger a blanket notification
+	gym := testRaidGym("channel-nosubs-gym", 5, 25, false)
+
+	users := FilteredUsers{
+		All:      map[int64]User{channelID: user},
+		Channels: []User{user},
+	}
+
+	svc.filterAndSendRaids(users, []GymData{gym}, map[int][]RaidSubscription{})
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestFilterAndSendRaids_UnknownUser_Skipped(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	gym := testRaidGym("unknown-user-gym", 5, 25, false)
+	users := FilteredUsers{All: map[int64]User{}}
+	subs := map[int][]RaidSubscription{
+		25: {{UserID: 99, PokemonID: 25, RaidLevel: 0}},
+	}
+
+	svc.filterAndSendRaids(users, []GymData{gym}, subs)
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+// ── processRaids ──────────────────────────────────────────────────────────────
+
+func TestProcessRaids_ScannerError_NoNotifications(t *testing.T) {
+	scanDB := &mockScannerDB{}
+	sender := &mockBotSender{}
+
+	scanDB.On("GetActiveRaids").Return([]GymData{}, errors.New("db error"))
+
+	svc := newTestService(nil, sender)
+	svc.scannerDB = scanDB
+
+	users := FilteredUsers{All: map[int64]User{}}
+	assert.NotPanics(t, func() {
+		svc.processRaids(users, map[int][]RaidSubscription{})
+	})
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestProcessRaids_Success_DispatchesNotifications(t *testing.T) {
+	db := &mockBotDB{}
+	scanDB := &mockScannerDB{}
+	sender := &mockBotSender{}
+
+	gym := testRaidGym("proc-raid", 5, 25, false)
+	scanDB.On("GetActiveRaids").Return([]GymData{gym}, nil)
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+	svc.scannerDB = scanDB
+
+	user := notifyUser(1)
+	users := FilteredUsers{All: map[int64]User{1: user}}
+	subs := map[int][]RaidSubscription{
+		25: {{UserID: 1, PokemonID: 25, RaidLevel: 0}},
+	}
+
+	svc.processRaids(users, subs)
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+// ── filterAndSendRaids: distance filtering ────────────────────────────────────
+
+// testRaidGymAt returns a raid gym at a specific location.
+func testRaidGymAt(id string, level, pokemonID int, lat, lon float32) GymData {
+	gym := testRaidGym(id, level, pokemonID, false)
+	gym.Lat = lat
+	gym.Lon = lon
+	return gym
+}
+
+func TestFilterAndSendRaids_AllRaids_TooFar_NoNotification(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	user := notifyUser(60)
+	user.AllRaids = true
+	user.Latitude = 48.0
+	user.Longitude = 11.0
+	user.MaxDistance = 50 // 50 m limit
+
+	// Gym is ~111 m away — outside the 50 m limit.
+	gym := testRaidGymAt("allraids-far-gym", 5, 25, 48.001, 11.0)
+
+	users := FilteredUsers{
+		All:      map[int64]User{60: user},
+		AllRaids: []User{user},
+	}
+	svc.filterAndSendRaids(users, []GymData{gym}, map[int][]RaidSubscription{})
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestFilterAndSendRaids_AllRaids_CloseEnough_Notifies(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+
+	user := notifyUser(61)
+	user.AllRaids = true
+	user.Latitude = 48.0
+	user.Longitude = 11.0
+	user.MaxDistance = 200 // 200 m limit
+
+	// Gym is ~111 m away — within the 200 m limit.
+	gym := testRaidGymAt("allraids-near-gym", 5, 25, 48.001, 11.0)
+
+	users := FilteredUsers{
+		All:      map[int64]User{61: user},
+		AllRaids: []User{user},
+	}
+	svc.filterAndSendRaids(users, []GymData{gym}, map[int][]RaidSubscription{})
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
+}
+
+func TestFilterAndSendRaids_LevelOnlySub_TooFar_NoNotification(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	user := notifyUser(62)
+	user.Latitude = 48.0
+	user.Longitude = 11.0
+	user.MaxDistance = 50
+
+	gym := testRaidGymAt("levelsub-far-gym", 5, 25, 48.001, 11.0)
+
+	users := FilteredUsers{All: map[int64]User{62: user}}
+	subs := map[int][]RaidSubscription{
+		0: {{UserID: 62, PokemonID: 0, RaidLevel: 5}},
+	}
+	svc.filterAndSendRaids(users, []GymData{gym}, subs)
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestFilterAndSendRaids_PokemonSub_TooFar_NoNotification(t *testing.T) {
+	sender := &mockBotSender{}
+	svc := newTestService(nil, sender)
+
+	user := notifyUser(63)
+	user.Latitude = 48.0
+	user.Longitude = 11.0
+	user.MaxDistance = 50
+
+	gym := testRaidGymAt("pokemonsub-far-gym", 5, 25, 48.001, 11.0)
+
+	users := FilteredUsers{All: map[int64]User{63: user}}
+	subs := map[int][]RaidSubscription{
+		25: {{UserID: 63, PokemonID: 25, RaidLevel: 0}},
+	}
+	svc.filterAndSendRaids(users, []GymData{gym}, subs)
+
+	sender.AssertNotCalled(t, "Send")
+}
+
+func TestFilterAndSendRaids_AllRaids_NoMaxDistance_Notifies(t *testing.T) {
+	db := &mockBotDB{}
+	sender := &mockBotSender{}
+	setupBotDbForEncounter(db)
+	setupSenderForAnyEncounter(sender)
+
+	svc := newTestService(db, sender)
+
+	// MaxDistance == 0 means no distance filter — user should always be notified.
+	user := notifyUser(64)
+	user.AllRaids = true
+	user.Latitude = 48.0
+	user.Longitude = 11.0
+	user.MaxDistance = 0
+
+	gym := testRaidGymAt("allraids-nodist-gym", 5, 25, 50.0, 14.0) // far away
+	users := FilteredUsers{
+		All:      map[int64]User{64: user},
+		AllRaids: []User{user},
+	}
+	svc.filterAndSendRaids(users, []GymData{gym}, map[int][]RaidSubscription{})
+
+	assert.GreaterOrEqual(t, sendCallCount(sender), 2)
 }

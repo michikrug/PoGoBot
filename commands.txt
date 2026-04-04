@@ -5,3 +5,6 @@ list - List your Pokémon subscriptions
 subscribe - Subscribe to Pokémon alerts <pokemon_name> [min-iv] [min-level] [max-distance]
 unsubscribe - Unsubscribe from Pokémon alerts <pokemon_name>
 locate - Find a gym by name and send its location <gym_name>
+raidsubscribe - Subscribe to raid alerts <pokemon-name|all> [raid-level]
+raidlist - List your raid subscriptions
+raidunsubscribe - Unsubscribe from raid alerts <pokemon-name|all> [raid-level]

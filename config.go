@@ -129,7 +129,7 @@ func configureTimezone() {
 // initDatabases initializes both bot and scanner database connections
 func initDatabases() {
 	db := openDatabase(appConfig.BotDB)
-	if err := db.AutoMigrate(&User{}, &Subscription{}, &Message{}, &Encounter{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Subscription{}, &RaidSubscription{}, &Message{}, &Encounter{}); err != nil {
 		log.Fatalf("❌ Failed to auto-migrate bot database: %v", err)
 	}
 	botDB = &gormBotDB{db: db}
@@ -243,6 +243,7 @@ func initializeApplication() {
 	// Warm the in-memory user and subscription caches used by the notification loop.
 	getUsersByFilters()
 	getActiveSubscriptions(botDB)
+	getRaidActiveSubscriptions(botDB)
 
 	// Initialize bot
 	initBot()
@@ -259,6 +260,8 @@ func initializeApplication() {
 		messagesCounter,
 		cleanupCounter,
 		encounterGauge,
+		raidNotificationsCounter,
+		raidEncounterGauge,
 	)
 
 	log.Println("✅ PoGoBot initialization completed successfully")

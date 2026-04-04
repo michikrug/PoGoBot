@@ -20,9 +20,22 @@ translations.json is rebuilt from scratch on every run from two sources:
       (many names are identical across languages) but dropped for all other
       game-data categories.
 
+      Also maps team and raid level names directly from the locale source via
+      team_<id> and raid_<id> keys (e.g. team_1 → "Weisheit", raid_5 →
+      "Legendärer Raid" for German).  The _plural variants are skipped.
+
       Upstream source (fetched via HTTPS):
         https://raw.githubusercontent.com/WatWowMap/pogo-translations
         /master/static/locales/{lang}.json
+
+  Step 1b — English canonical names (en.json)
+      Always fetches en.json as well and writes an "en" section to
+      translations.json containing the team_<id> and raid_<id> canonical
+      English names (e.g. team_1 → "Mystic", raid_5 → "Legendary Raid").
+      This is needed because the masterfile uses generic colour-based names
+      ("Team Blue") rather than the canonical brand names, and because
+      getTranslation() is no longer a no-op for English when these keys are
+      involved.
 
   Step 2 — Bot UI strings (bot_strings.json)
       Merges application-specific bot UI strings — the literals used in
@@ -33,8 +46,6 @@ translations.json is rebuilt from scratch on every run from two sources:
       Also cross-checks bot_strings.json keys against the actual Go source
       and reports any drift (keys in Go but not in bot_strings.json, or
       keys in bot_strings.json that are no longer used in Go).
-
-Output: all entries sorted alphabetically by key.
 
 Usage:
   python build_translations.py [options]
@@ -151,7 +162,7 @@ def fetch_masterfile(url: str, dest_path: str) -> None:
 
 def load_lang_source(lang: str) -> dict:
     """Fetch pogo-translations {lang}.json and return it."""
-    print("\nFetching upstream locale source (pogo-translations) …")
+    print(f"\nFetching upstream locale source (pogo-translations/{lang}.json) …")
     return fetch_json(
         _POGO_TRANS_BASE.format(lang=lang), f"pogo-translations {lang}.json"
     )
@@ -218,6 +229,29 @@ def build_game_data_translations(
     return entries, still_missing
 
 
+# ── Step 1b: Team and raid names ──────────────────────────────────────────────
+
+
+def build_team_raid_translations(lang_src: dict) -> dict:
+    """
+    Return {key: translated_name} for all team_<id> and raid_<id> entries in
+    lang_src, skipping the _plural variants.  The keys are kept as-is (e.g.
+    "team_1", "raid_5") so the Go Translator can look them up directly by
+    numeric ID without going through the masterfile's generic English strings.
+    """
+    entries: dict[str, str] = {}
+    for key, value in lang_src.items():
+        if key.startswith("team_") and not key.endswith("_plural"):
+            # Skip the "team_a_<id>" variant (full "Team Mystic" form); we only
+            # want the short names (team_1 → "Mystic" / "Weisheit").
+            parts = key.split("_")
+            if len(parts) == 2:
+                entries[key] = value
+        elif key.startswith("raid_") and not key.endswith("_plural"):
+            entries[key] = value
+    return entries
+
+
 # ── Step 2: Bot UI strings ────────────────────────────────────────────────────
 
 # Matches any .T("…") or .Tf("…") call — covers both:
@@ -268,6 +302,8 @@ def print_report(
     lang: str,
     step1_entries: dict,
     step1_missing: list[str],
+    step1b_entries: dict,
+    step1b_en_entries: dict,
     step2_entries: dict,
     final_map: dict,
     dry_run: bool,
@@ -285,6 +321,10 @@ def print_report(
             print(f"    • {name}")
     else:
         print("  Still missing     : 0 ✅")
+
+    _section(f"Step 1b — Team / raid names ({lang}.json + en.json)")
+    print(f"  {lang} entries : {len(step1b_entries)}")
+    print(f"  en entries   : {len(step1b_en_entries)}")
 
     _section("Step 2 — Bot UI strings (bot_strings.json)")
     print(f"  Entries in bot_strings.json[{lang!r}] : {len(step2_entries)}")
@@ -366,18 +406,34 @@ def main() -> None:
     # ── Step 1 — Game data ────────────────────────────────────────────────────
     step1_entries, step1_missing = build_game_data_translations(masterfile, lang_src)
 
+    # ── Step 1b — Team / raid names ───────────────────────────────────────────
+    # Always fetch en.json alongside the target language so that English users
+    # get canonical brand names (Mystic / Valor / Instinct, Legendary Raid, …)
+    # rather than the generic masterfile strings (Team Blue, Raid Level 5, …).
+    step1b_entries = build_team_raid_translations(lang_src)
+    en_src = load_lang_source("en") if lang != "en" else lang_src
+    step1b_en_entries = build_team_raid_translations(en_src)
+
     # ── Step 2 — Bot UI strings ───────────────────────────────────────────────
     step2_entries = load_bot_strings(args.bot_strings, lang)
 
-    # ── Build final map ───────────────────────────────────────────────────────
+    # ── Build final maps ──────────────────────────────────────────────────────
+    # For the target language: game data + team/raid names + bot strings.
     # bot_strings.json takes precedence over game data for any overlapping key.
-    final_map: dict[str, str] = {**step1_entries, **step2_entries}
+    final_map: dict[str, str] = {**step1_entries, **step1b_entries, **step2_entries}
+
+    # For English: only the team/raid canonical names are needed; everything
+    # else falls back to the key itself (getTranslation is still a no-op for
+    # regular string keys when lang=="en").
+    en_map: dict[str, str] = step1b_en_entries
 
     # ── Report ────────────────────────────────────────────────────────────────
     print_report(
         lang,
         step1_entries,
         step1_missing,
+        step1b_entries,
+        step1b_en_entries,
         step2_entries,
         final_map,
         args.dry_run,
@@ -385,10 +441,13 @@ def main() -> None:
 
     # ── Write ─────────────────────────────────────────────────────────────────
     if not args.dry_run:
+        output: dict[str, dict[str, str]] = {
+            lang: dict(final_map.items()),
+        }
+        if lang != "en":
+            output["en"] = dict(en_map.items())
         with open(args.translations, "w", encoding="utf-8") as f:
-            json.dump(
-                {lang: dict(sorted(final_map.items()))}, f, ensure_ascii=False, indent=4
-            )
+            json.dump(output, f, ensure_ascii=False, indent=4)
 
     # ── Check (requires Go source) ────────────────────────────────────────────
     if args.check:

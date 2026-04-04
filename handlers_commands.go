@@ -63,6 +63,16 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 	btnListSubscriptions := telebot.InlineButton{Text: tr.T("📋 List all Pokémon Subscriptions"), Unique: "list_subscriptions"}
 	btnClearSubscriptions := telebot.InlineButton{Text: tr.T("🗑️ Clear all Pokémon Subscriptions"), Unique: "clear_subscriptions"}
 
+	allRaidsText := tr.T("⚔️ Disable All Raids Notifications")
+	if !user.AllRaids {
+		allRaidsText = tr.T("⚔️ Enable All Raids Notifications")
+	}
+	btnToggleAllRaids := telebot.InlineButton{Text: allRaidsText, Unique: "toggle_all_raids"}
+	btnSetRaidMinLevel := telebot.InlineButton{Text: tr.T("🔢 Set Raid Minimal Level"), Unique: "set_raid_min_level"}
+	btnAddRaidSubscription := telebot.InlineButton{Text: tr.T("⚔️ Add Raid Subscription"), Unique: "add_raid_subscription"}
+	btnListRaidSubscriptions := telebot.InlineButton{Text: tr.T("📋 List all Raid Subscriptions"), Unique: "list_raid_subscriptions"}
+	btnClearRaidSubscriptions := telebot.InlineButton{Text: tr.T("🗑️ Clear all Raid Subscriptions"), Unique: "clear_raid_subscriptions"}
+
 	notificationsText := tr.T("🔔 Disable all Notifications")
 	if !user.Notify {
 		notificationsText = tr.T("🔕 Enable all Notifications")
@@ -113,13 +123,16 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 			tr.T("💯 *100%% IV Notifications:* %s")+"\n"+
 			tr.T("🚫 *0%% IV Notifications:* %s")+"\n"+
 			tr.T("🏅 *Top PVP Notifications:* %s")+"\n"+
+			tr.T("⚔️ *Raid Subscriptions:* %s")+"\n"+
+			tr.T("⚔️ *Raid Minimal Level:* %d")+"\n"+
 			tr.T("🗑️ *Cleanup Expired Notifications:* %s")+"\n\n"+
 			tr.T("Use the buttons below to update the settings"),
 		user.Language, user.Latitude, user.Longitude,
 		user.MaxDistance, user.MinIV, user.MinLevel,
 		boolToEmoji(user.Notify), boolToEmoji(user.Stickers),
 		boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV),
-		boolToEmoji(user.TopPVP), boolToEmoji(user.Cleanup),
+		boolToEmoji(user.TopPVP), boolToEmoji(user.AllRaids),
+		user.RaidMinLevel, boolToEmoji(user.Cleanup),
 	)
 
 	if isChannelID(user.ID) {
@@ -137,12 +150,15 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 				tr.T("💯 *100%% IV Notifications:* %s")+"\n"+
 				tr.T("🚫 *0%% IV Notifications:* %s")+"\n"+
 				tr.T("🏅 *Top PVP Notifications:* %s")+"\n"+
+				tr.T("⚔️ *Raid Subscriptions:* %s")+"\n"+
+				tr.T("⚔️ *Raid Minimal Level:* %d")+"\n"+
 				tr.T("🗑️ *Cleanup Expired Notifications:* %s")+"\n\n"+
 				tr.T("Use the buttons below to update the settings"),
 			user.ID, chatInfo.Title, user.Language, user.MinIV, user.MinLevel,
 			boolToEmoji(user.Notify), boolToEmoji(user.Stickers),
 			boolToEmoji(user.HundoIV), boolToEmoji(user.ZeroIV),
-			boolToEmoji(user.TopPVP), boolToEmoji(user.Cleanup),
+			boolToEmoji(user.TopPVP), boolToEmoji(user.AllRaids),
+			user.RaidMinLevel, boolToEmoji(user.Cleanup),
 		)
 	}
 
@@ -155,6 +171,11 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 		{btnAddSubscription},
 		{btnListSubscriptions},
 		{btnClearSubscriptions},
+		{btnToggleAllRaids},
+		{btnSetRaidMinLevel},
+		{btnAddRaidSubscription},
+		{btnListRaidSubscriptions},
+		{btnClearRaidSubscriptions},
 		{btnToggleNotifications},
 		{btnToggleStickers},
 		{btnToogleHundoIV},
@@ -211,7 +232,10 @@ func handleHelp(c telebot.Context) error {
 		tr.T("🔔 /settings - Update your preferences") + "\n" +
 		tr.T("📋 /list - List your Pokémon subscriptions") + "\n" +
 		tr.T("📣 /subscribe <pokemon-name> [min-iv] [min-level] [max-distance] - Subscribe to Pokémon alerts") + "\n" +
-		tr.T("🚫 /unsubscribe <pokemon-name> - Unsubscribe from Pokémon alerts")
+		tr.T("🚫 /unsubscribe <pokemon-name> - Unsubscribe from Pokémon alerts") + "\n" +
+		tr.T("⚔️ /raidsubscribe - Subscribe to raid alerts") + "\n" +
+		tr.T("⚔️ /raidlist - List your raid subscriptions") + "\n" +
+		tr.T("🚫 /raidunsubscribe - Unsubscribe from raid alerts")
 	return c.Send(helpMessage, telebot.ModeMarkdown)
 }
 
@@ -335,6 +359,122 @@ func handleUnsubscribe(c telebot.Context) error {
 	return c.Send(tr.Tf("✅ Unsubscribed from %s alerts", tr.PokemonName(pokemonID)))
 }
 
+func handleRaidSubscribe(c telebot.Context) error {
+	userID := getUserID(c)
+	tr := newTranslatorFor(c)
+
+	args := c.Args()
+	if len(args) < 1 {
+		return c.Send(tr.T("ℹ️ Usage: /raidsubscribe <pokemon-name|all> [raid-level]"))
+	}
+
+	// Last arg is optional raid level (numeric); everything before is the name.
+	raidLevel := 0
+	nameArgs := args
+	if len(args) >= 2 {
+		if lvl, err := strconv.Atoi(args[len(args)-1]); err == nil {
+			raidLevel = lvl
+			nameArgs = args[:len(args)-1]
+		}
+	}
+	if raidLevel < 0 || raidLevel > 19 {
+		return c.Send(tr.T("❌ Invalid raid level! Please enter a level between 1 and 19"))
+	}
+
+	name := strings.Join(nameArgs, " ")
+	if strings.ToLower(name) == "all" || strings.ToLower(name) == "alle" {
+		if raidLevel == 0 {
+			return c.Send(tr.T("❌ Use /raidsubscribe all <min-level> to subscribe to all raids"))
+		}
+		updateUserPreference(userID, "AllRaids", true)
+		updateUserPreference(userID, "RaidMinLevel", raidLevel)
+		return c.Send(tr.Tf("✅ Subscribed to all raids (Min Level: %d)", raidLevel))
+	}
+
+	pokemonID, err := getPokemonID(name)
+	if err != nil {
+		return c.Send(tr.Tf("❌ Can't find Pokedex # for Pokémon: %s", name))
+	}
+
+	addRaidSubscription(userID, pokemonID, raidLevel)
+	if raidLevel == 0 {
+		return c.Send(tr.Tf("✅ Subscribed to %s raids (any level)", tr.PokemonName(pokemonID)))
+	}
+	return c.Send(tr.Tf("✅ Subscribed to %s raids (Level: %d)", tr.PokemonName(pokemonID), raidLevel))
+}
+
+func handleRaidList(c telebot.Context) error {
+	user := userFromCache(getUserID(c))
+	tr := newTranslator(user.Language)
+
+	var text strings.Builder
+	text.WriteString(tr.T("📋 *Your Raid Subscriptions:*") + "\n\n")
+	if user.AllRaids {
+		text.WriteString(tr.Tf("🔹 All raids (Min Level: %d)", user.RaidMinLevel) + "\n")
+	}
+	subs := getUserRaidSubscriptions(user.ID)
+	if !user.AllRaids && len(subs) == 0 {
+		return c.Send(tr.T("🔹 You have no raid subscriptions"), telebot.ModeMarkdown)
+	}
+	c.Send(text.String(), telebot.ModeMarkdown)
+	text.Reset()
+
+	for _, sub := range subs {
+		var entry string
+		if sub.PokemonID == 0 {
+			entry = tr.Tf("🔹 Level %d raids", sub.RaidLevel) + "\n"
+		} else if sub.RaidLevel == 0 {
+			entry = tr.Tf("🔹 %s raids (any level)", tr.PokemonName(sub.PokemonID)) + "\n"
+		} else {
+			entry = tr.Tf("🔹 %s raids (Level %d only)", tr.PokemonName(sub.PokemonID), sub.RaidLevel) + "\n"
+		}
+		if text.Len()+len(entry) > 4000 {
+			c.Send(text.String())
+			text.Reset()
+		}
+		text.WriteString(entry)
+	}
+	return c.Send(text.String())
+}
+
+func handleRaidUnsubscribe(c telebot.Context) error {
+	userID := getUserID(c)
+	tr := newTranslatorFor(c)
+
+	args := c.Args()
+	if len(args) < 1 {
+		return c.Send(tr.T("ℹ️ Usage: /raidunsubscribe <pokemon-name|all> [raid-level]"))
+	}
+
+	raidLevel := 0
+	nameArgs := args
+	if len(args) >= 2 {
+		if lvl, err := strconv.Atoi(args[len(args)-1]); err == nil {
+			raidLevel = lvl
+			nameArgs = args[:len(args)-1]
+		}
+	}
+
+	name := strings.Join(nameArgs, " ")
+	if strings.ToLower(name) == "all" || strings.ToLower(name) == "alle" {
+		updateUserPreference(userID, "AllRaids", false)
+		updateUserPreference(userID, "RaidMinLevel", 0)
+		return c.Send(tr.Tf("✅ Unsubscribed from level %d raids", raidLevel))
+	}
+
+	pokemonID, err := getPokemonID(name)
+	if err != nil {
+		return c.Send(tr.Tf("❌ Can't find Pokedex # for Pokémon: %s", name))
+	}
+
+	deleteRaidSubscription(userID, pokemonID, raidLevel)
+	getRaidActiveSubscriptions(botDB)
+	if raidLevel == 0 {
+		return c.Send(tr.Tf("✅ Unsubscribed from %s raids (any level)", tr.PokemonName(pokemonID)))
+	}
+	return c.Send(tr.Tf("✅ Unsubscribed from %s raids (Level %d)", tr.PokemonName(pokemonID), raidLevel))
+}
+
 func handleLocate(c telebot.Context) error {
 	tr := newTranslatorFor(c)
 
@@ -407,6 +547,9 @@ func setupBotHandlers() {
 	bot.Handle("/subscribe", handleSubscribe)
 	bot.Handle("/list", handleList)
 	bot.Handle("/unsubscribe", handleUnsubscribe)
+	bot.Handle("/raidsubscribe", handleRaidSubscribe)
+	bot.Handle("/raidlist", handleRaidList)
+	bot.Handle("/raidunsubscribe", handleRaidUnsubscribe)
 	bot.Handle("/locate", handleLocate)
 	bot.Handle("/reset", handleReset)
 	bot.Handle("/wo", handleWoCommand)
@@ -421,6 +564,11 @@ func setupBotHandlers() {
 	bot.Handle(&telebot.InlineButton{Unique: "add_subscription"}, handleAddSubscriptionCallback)
 	bot.Handle(&telebot.InlineButton{Unique: "list_subscriptions"}, handleListSubscriptionsCallback)
 	bot.Handle(&telebot.InlineButton{Unique: "clear_subscriptions"}, handleClearSubscriptionsCallback)
+	bot.Handle(&telebot.InlineButton{Unique: "toggle_all_raids"}, handleToggleAllRaidsCallback)
+	bot.Handle(&telebot.InlineButton{Unique: "set_raid_min_level"}, handleSetRaidMinLevelCallback)
+	bot.Handle(&telebot.InlineButton{Unique: "add_raid_subscription"}, handleAddRaidSubscriptionCallback)
+	bot.Handle(&telebot.InlineButton{Unique: "list_raid_subscriptions"}, handleListRaidSubscriptionsCallback)
+	bot.Handle(&telebot.InlineButton{Unique: "clear_raid_subscriptions"}, handleClearRaidSubscriptionsCallback)
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_notifications"}, handleToggleNotificationsCallback)
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_stickers"}, handleToggleStickersCallback)
 	bot.Handle(&telebot.InlineButton{Unique: "toggle_hundo_iv"}, handleToggleHundoIVCallback)

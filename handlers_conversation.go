@@ -186,6 +186,71 @@ func handleImpersonateUserInput(c telebot.Context) error {
 	return c.Send(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 }
 
+// ── Raid subscription wizard ──────────────────────────────────────────────────
+
+func handleAddRaidSubscriptionPokemon(c telebot.Context) error {
+	userID := c.Sender().ID
+	tr := newTranslatorFor(c)
+	name := strings.TrimSpace(c.Text())
+
+	if strings.ToLower(name) == "all" || strings.ToLower(name) == "alle" {
+		userConversationStates[userID] = "add_raid_subscription_level_0"
+		return c.Send(tr.Tf("⚔️ Subscribing to %s raids. Enter the raid level (1-19, or 0 for any):", "all"))
+	}
+
+	pokemonID, err := getPokemonID(name)
+	if err != nil {
+		return c.Send(tr.Tf("❌ Can't find Pokedex # for Pokémon: %s", name))
+	}
+
+	userConversationStates[userID] = fmt.Sprintf("add_raid_subscription_level_%d", pokemonID)
+	return c.Send(tr.Tf("⚔️ Subscribing to %s raids. Enter the raid level (1-19, or 0 for any):",
+		tr.PokemonName(pokemonID),
+	))
+}
+
+func handleAddRaidSubscriptionLevel(c telebot.Context, pokemonID int) error {
+	userID := c.Sender().ID
+	tr := newTranslatorFor(c)
+
+	raidLevel, err := validateIntInRange(c.Text(), 0, 19, "❌ Invalid raid level! Please enter a level between 1 and 19")
+	if err != nil {
+		return c.Send(tr.T(err.Error()))
+	}
+
+	if pokemonID == 0 {
+		// "all" path — raidLevel must be > 0
+		if raidLevel == 0 {
+			return c.Send(tr.T("❌ Use /raidsubscribe all <min-level> to subscribe to all raids"))
+		}
+		updateUserPreference(getUserID(c), "AllRaids", true)
+		updateUserPreference(getUserID(c), "RaidMinLevel", raidLevel)
+		clearConversationState(userID)
+		return c.Send(tr.Tf("✅ Subscribed to all raids (Min Level: %d)", raidLevel))
+	}
+
+	addRaidSubscription(getUserID(c), pokemonID, raidLevel)
+	clearConversationState(userID)
+	if raidLevel == 0 {
+		return c.Send(tr.Tf("✅ Subscribed to %s raids (any level)", tr.PokemonName(pokemonID)))
+	}
+	return c.Send(tr.Tf("✅ Subscribed to %s raids (Level: %d)", tr.PokemonName(pokemonID), raidLevel))
+}
+
+func handleSetRaidMinLevelInput(c telebot.Context) error {
+	userID := c.Sender().ID
+	tr := newTranslatorFor(c)
+
+	raidLevel, err := validateIntInRange(c.Text(), 1, 19, "❌ Invalid raid level! Please enter a level between 1 and 19")
+	if err != nil {
+		return c.Send(tr.T(err.Error()))
+	}
+
+	updateUserPreference(getUserID(c), "RaidMinLevel", raidLevel)
+	clearConversationState(userID)
+	return c.Send(tr.Tf("🔢 Raid Minimal Level updated to %d", raidLevel))
+}
+
 func handleTextInput(c telebot.Context) error {
 	userID := c.Sender().ID
 	conversationState := userConversationStates[userID]
@@ -231,6 +296,17 @@ func handleTextInput(c telebot.Context) error {
 
 	case conversationState == "impersonate_user":
 		return handleImpersonateUserInput(c)
+
+	case conversationState == "add_raid_subscription":
+		return handleAddRaidSubscriptionPokemon(c)
+
+	case strings.HasPrefix(conversationState, "add_raid_subscription_level"):
+		parts := strings.Split(conversationState, "_")
+		pokemonID, _ := strconv.Atoi(parts[len(parts)-1])
+		return handleAddRaidSubscriptionLevel(c, pokemonID)
+
+	case conversationState == "set_raid_min_level":
+		return handleSetRaidMinLevelInput(c)
 	}
 
 	return nil

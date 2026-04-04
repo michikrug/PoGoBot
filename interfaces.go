@@ -17,6 +17,11 @@ type BotDB interface {
 	GetExpiredEncountersWithMessages() ([]Encounter, map[string][]Message)
 	DeleteMessage(message Message)
 	DeleteEncounter(encounter Encounter)
+	AddRaidSubscription(userID int64, pokemonID, raidLevel int)
+	GetRaidSubscriptions() []RaidSubscription
+	GetUserRaidSubscriptions(userID int64) []RaidSubscription
+	DeleteRaidSubscription(userID int64, pokemonID, raidLevel int)
+	DeleteAllUserRaidSubscriptions(userID int64)
 }
 
 // ScannerDB defines all read operations against the scanner database.
@@ -24,6 +29,7 @@ type ScannerDB interface {
 	GetRecentEncounters() ([]EncounterData, error)
 	SearchGymsByName(name string) []GymData
 	GetGymByID(id string) GymData
+	GetActiveRaids() ([]GymData, error)
 }
 
 // BotSender wraps the Telegram bot send/delete surface so it can be mocked in tests.

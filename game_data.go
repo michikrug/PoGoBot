@@ -57,20 +57,47 @@ func (tr Translator) MoveName(moveID int) string {
 	return tr.T("Unknown")
 }
 
+// RaidLevelName returns the localised raid-level label for the given level
+// (e.g. "Legendärer Raid" for level 5 in German, "Legendary Raid" in English).
+// Falls back to "L<n>" for any level without a translation.
+func (tr Translator) RaidLevelName(level int) string {
+	key := fmt.Sprintf("raid_%d", level)
+	translated := tr.T(key)
+	if translated == key {
+		// No translation found — produce a generic numeric label.
+		return fmt.Sprintf("L%d", level)
+	}
+	return translated
+}
+
+// TeamName returns the localised team name for the given team ID (0=Unset,
+// 1=Mystic, 2=Valor, 3=Instinct). Falls back to "Team <n>" for unknown IDs.
+func (tr Translator) TeamName(teamID int) string {
+	key := fmt.Sprintf("team_%d", teamID)
+	translated := tr.T(key)
+	if translated == key {
+		// No translation found — produce a generic numeric label.
+		return fmt.Sprintf("Team %d", teamID)
+	}
+	return translated
+}
+
 // getTranslation returns the translation for key in the requested language.
-// For English it is a no-op; for other languages it falls back to the key if
+// For English it first checks the "en" section of translations (which holds
+// canonical brand names for team_<id> and raid_<id> keys), then falls back to
+// returning the key itself so that regular bot-string keys work without needing
+// an explicit English entry.  For other languages it falls back to the key if
 // the translation is missing.
 func getTranslation(key string, language string) string {
-	if language == "en" {
-		return key
-	}
 	if languageMap, exists := translations[language]; exists {
 		if translatedText, exists := languageMap[key]; exists {
 			return translatedText
 		}
-		log.Printf("❌ Translation key not found: %s", key)
-	} else {
-		log.Printf("❌ Translation language not found: %s", language)
 	}
+	if language == "en" {
+		// For English, the key is the display string for all regular bot strings.
+		return key
+	}
+	log.Printf("❌ Translation key not found: %s (lang=%s)", key, language)
 	return key
 }

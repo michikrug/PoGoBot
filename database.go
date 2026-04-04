@@ -97,6 +97,30 @@ func (r *gormBotDB) DeleteEncounter(encounter Encounter) {
 	r.db.Delete(&encounter)
 }
 
+func (r *gormBotDB) AddRaidSubscription(userID int64, pokemonID, raidLevel int) {
+	r.db.Save(&RaidSubscription{UserID: userID, PokemonID: pokemonID, RaidLevel: raidLevel})
+}
+
+func (r *gormBotDB) GetRaidSubscriptions() []RaidSubscription {
+	var subscriptions []RaidSubscription
+	r.db.Find(&subscriptions)
+	return subscriptions
+}
+
+func (r *gormBotDB) GetUserRaidSubscriptions(userID int64) []RaidSubscription {
+	var subscriptions []RaidSubscription
+	r.db.Where("user_id = ?", userID).Order("pokemon_id, raid_level").Find(&subscriptions)
+	return subscriptions
+}
+
+func (r *gormBotDB) DeleteRaidSubscription(userID int64, pokemonID, raidLevel int) {
+	r.db.Where("user_id = ? AND pokemon_id = ? AND raid_level = ?", userID, pokemonID, raidLevel).Delete(&RaidSubscription{})
+}
+
+func (r *gormBotDB) DeleteAllUserRaidSubscriptions(userID int64) {
+	r.db.Where("user_id = ?", userID).Delete(&RaidSubscription{})
+}
+
 // ── ScannerDB implementation ──────────────────────────────────────────────────
 
 func (r *gormScannerDB) GetRecentEncounters() ([]EncounterData, error) {
@@ -132,4 +156,16 @@ func (r *gormScannerDB) GetGymByID(id string) GymData {
 	var gym GymData
 	r.db.First(&gym, GymData{ID: id})
 	return gym
+}
+
+// GetActiveRaids returns all gyms that currently have an active raid boss visible
+// (battle_timestamp <= now < end_timestamp, raid_pokemon_id IS NOT NULL and != 0).
+func (r *gormScannerDB) GetActiveRaids() ([]GymData, error) {
+	now := time.Now().Unix()
+	var gyms []GymData
+	err := r.db.Where(
+		"raid_pokemon_id IS NOT NULL AND raid_pokemon_id != 0 AND raid_battle_timestamp <= ? AND raid_end_timestamp > ?",
+		now, now,
+	).Find(&gyms).Error
+	return gyms, err
 }

@@ -45,13 +45,14 @@ func checkEnvVars(vars []string) {
 	}
 }
 
-// withinDistance checks if the encounter is within the user's allowed distance
-// Returns true if the check passes or if no distance filtering is set
-func withinDistance(user User, encounter EncounterData, maxDistance int) bool {
+// withinDistance reports whether a point at (lat, lon) is within maxDistance
+// metres of the user's location. Returns true if no distance filtering is set
+// (user has no location or maxDistance is zero).
+func withinDistance(user User, lat, lon float32, maxDistance int) bool {
 	if user.Latitude == 0 || user.Longitude == 0 || maxDistance == 0 {
 		return true
 	}
-	distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(encounter.Lat), float64(encounter.Lon))
+	distance := haversine(float64(user.Latitude), float64(user.Longitude), float64(lat), float64(lon))
 	return distance <= float64(maxDistance)
 }
 
