@@ -91,17 +91,17 @@ func TestGetGenderEmoji_Nil(t *testing.T) {
 
 func TestGetGenderEmoji_Male(t *testing.T) {
 	g := 1
-	assert.Equal(t, "♂", getGenderEmoji(&g))
+	assert.Equal(t, " ♂", getGenderEmoji(&g))
 }
 
 func TestGetGenderEmoji_Female(t *testing.T) {
 	g := 2
-	assert.Equal(t, "♀", getGenderEmoji(&g))
+	assert.Equal(t, " ♀", getGenderEmoji(&g))
 }
 
 func TestGetGenderEmoji_Genderless(t *testing.T) {
 	g := 3
-	assert.Equal(t, "⚲", getGenderEmoji(&g))
+	assert.Equal(t, " ⚲", getGenderEmoji(&g))
 }
 
 func TestGetGenderEmoji_Unknown(t *testing.T) {
@@ -151,13 +151,7 @@ func TestGetWeatherEmoji_Snow(t *testing.T) {
 	assert.Equal(t, " ⛄️", getWeatherEmoji(&w))
 }
 
-func TestGetWeatherEmoji_Zero(t *testing.T) {
-	// weather 0 maps to "" so result is " " (space + empty string).
-	w := 0
-	assert.Equal(t, " ", getWeatherEmoji(&w))
-}
-
 func TestGetWeatherEmoji_Unknown(t *testing.T) {
 	w := 99
-	assert.Equal(t, " ", getWeatherEmoji(&w)) // not in map → " " + ""
+	assert.Equal(t, "", getWeatherEmoji(&w))
 }

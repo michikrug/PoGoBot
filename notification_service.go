@@ -413,11 +413,11 @@ func (s *NotificationService) generateNotificationTitle(user User, encounter Enc
 
 	if encounter.IV == nil || encounter.AtkIV == nil || encounter.DefIV == nil ||
 		encounter.StaIV == nil || encounter.CP == nil || encounter.Level == nil {
-		return fmt.Sprintf("*🔔 %s%s %s*%s%s",
+		return fmt.Sprintf("*🔔 %s%s%s*%s%s",
 			name, formSuffix, genderEmoji, sizeEmoji, weatherEmoji)
 	}
 
-	return fmt.Sprintf("*🔔 %s%s %s %.1f%% %d|%d|%d %d%s L%d*%s%s",
+	return fmt.Sprintf("*🔔 %s%s%s %.1f%% %d|%d|%d %d%s L%d*%s%s",
 		name,
 		formSuffix,
 		genderEmoji,

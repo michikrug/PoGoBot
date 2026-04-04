@@ -62,7 +62,10 @@ func getGenderEmoji(gender *int) string {
 	if gender == nil {
 		return ""
 	}
-	return genderMap[*gender]
+	if emoji := genderMap[*gender]; emoji != "" {
+		return " " + emoji
+	}
+	return ""
 }
 
 // getSizeEmoji returns the size emoji for small (1) and large (5) Pokémon.
@@ -85,7 +88,10 @@ func getWeatherEmoji(weather *int) string {
 	if weather == nil {
 		return ""
 	}
-	return " " + weatherMap[*weather]
+	if emoji := weatherMap[*weather]; emoji != "" {
+		return " " + emoji
+	}
+	return ""
 }
 
 // Gender and weather emoji mappings
@@ -96,7 +102,6 @@ var (
 		3: "\u26b2", // Genderless
 	}
 	weatherMap = map[int]string{
-		0: "",
 		1: "☀️",
 		2: "☔️",
 		3: "⛅",
