@@ -1,0 +1,7 @@
+start - Register with the bot and set your language
+help - Show available commands
+settings - Update your preferences
+list - List your Pokémon subscriptions
+subscribe - Subscribe to Pokémon alerts <pokemon_name> [min-iv] [min-level] [max-distance]
+unsubscribe - Unsubscribe from Pokémon alerts <pokemon_name>
+locate - Find a gym by name and send its location <gym_name>
