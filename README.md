@@ -1,93 +1,127 @@
-# Pokémon Notification Bot
+# 🐾 Pokémon Notification Bot
 
-## Overview
+## 📖 Overview
 
-This is a **Telegram bot** written in Go that notifies users about Pokémon encounters based on their preferences. The bot fetches Pokémon encounters from a MySQL database (Golbat / RDM Schema) and allows users to configure filters like IV, level, and distance. Notifications are sent as private messages.
+A **Telegram bot** written in Go that notifies users about Pokémon encounters based on their preferences. The bot polls a MySQL database (Golbat / RDM schema) every 30 seconds and sends personalized notifications as private Telegram messages.
 
-## Features
+## ✨ Features
 
-- 📨 **Personalized Pokémon Alerts** – Users can subscribe to Pokémon notifications based on ID, IV, level, and distance.
-- 🌍 **Multi-Language Support** – Pokémon names and move names are displayed based on user language settings (currently supports English and German).
-- 📍 **Location-Based Filtering** – Users can share their location to receive alerts for Pokémon within a specified radius.
-- 🛠 **Flexible Configuration** – Users can adjust settings via `/settings`, including notification preferences, sticker usage, and language.
-- 📊 **Prometheus Metrics** – The bot exposes Prometheus metrics to monitor performance and activity.
-- 🗑️ **Auto Cleanup** – Optionally deletes expired notifications.
-- 🔔 **Support for 100% and 0% IV Pokémon Alerts** – Users can opt-in for alerts on perfect or worst IV Pokémon.
+- 📨 **Personalized Pokémon alerts** – Subscribe by Pokémon name with optional IV, level, and distance filters.
+- 💯 **100% / 0% IV and Top PVP alerts** – Opt-in global alerts for perfect IV, zero IV, or top-3 PVP ranked Pokémon.
+- 📍 **Location-based filtering** – Share a location to restrict alerts to a configurable radius.
+- 🌍 **Multi-language support** – Pokémon and move names in English and German; auto-detected from Telegram.
+- 🗺️ **Map-only mode** – Receive encounters as a Telegram Venue pin instead of text + location messages.
+- 🎭 **Sticker support** – Optionally include a Pokémon sticker with each notification.
+- 🗑️ **Auto-cleanup** – Optionally delete expired notification messages when a spawn despawns.
+- 🔒 **Admin impersonation** – Admins can act on behalf of any user for support purposes.
+- 📊 **Prometheus metrics** – Exposes operational metrics on `:9001/metrics`.
+- 🛑 **Graceful shutdown** – SIGINT/SIGTERM stops the bot, drains the metrics server, and cancels the notification loop cleanly.
 
-## Installation & Setup
+## 🔧 Requirements
 
-### **1. Clone the Repository**
+- Go 1.21+
+- Two MySQL-compatible databases:
+  - **Bot DB** – stores users, subscriptions, tracked messages, and encounter state.
+  - **Scanner DB** – a read-only Golbat / RDM database that provides live encounter data.
+
+## 🚀 Installation & Setup
+
+### 1. Clone the repository
 
 ```sh
 git clone https://github.com/michikrug/PoGoBot.git
 cd PoGoBot
 ```
 
-### **2. Configure Environment Variables**
+### 2. Configure environment variables
 
-Create a `.env` file and define the required variables:
-
-```sh
-BOT_TOKEN=your-telegram-bot-token
-BOT_ADMINS=12345678,87654321
-BOT_DB_USER=dbuser
-BOT_DB_PASS=dbpassword
-BOT_DB_NAME=bot_database
-BOT_DB_HOST=localhost
-SCANNER_DB_USER=scanner_db_user
-SCANNER_DB_PASS=scanner_db_password
-SCANNER_DB_NAME=scanner_database
-SCANNER_DB_HOST=localhost
-```
-
-### **3. Run the Bot**
+Copy `example.env` to `.env` and fill in the values:
 
 ```sh
-go run main.go
+cp example.env .env
 ```
 
-### **4. Run with Docker**
+| Variable | Required | Description |
+|---|---|---|
+| `BOT_TOKEN` | ✅ | Telegram bot token from @BotFather |
+| `BOT_ADMINS` | ✅ | Comma-separated Telegram user IDs with admin access |
+| `BOT_DB_USER` | ✅ | Bot database username |
+| `BOT_DB_PASS` | ✅ | Bot database password |
+| `BOT_DB_NAME` | ✅ | Bot database name |
+| `BOT_DB_HOST` | ✅ | Bot database host (e.g. `localhost:3306`) |
+| `SCANNER_DB_USER` | ✅ | Scanner database username |
+| `SCANNER_DB_PASS` | ✅ | Scanner database password |
+| `SCANNER_DB_NAME` | ✅ | Scanner database name |
+| `SCANNER_DB_HOST` | ✅ | Scanner database host |
+| `BOT_TIMEZONE` | ➖ | IANA timezone name for expire times (e.g. `Europe/Berlin`). Defaults to the system local timezone; falls back to UTC if invalid. |
 
-Build and run the bot in a Docker container:
+### 3. Run the bot
+
+```sh
+go run .
+```
+
+### 4. Run with Docker
 
 ```sh
 docker build -t pogobot .
 docker run --env-file .env pogobot
 ```
 
-## Commands
+## 🤖 Commands
 
-| Command          | Description |
-|-----------------|-------------|
-| `/start`        | Starts the bot and sets default settings |
-| `/help`         | Show help information |
-| `/settings`     | Open settings to adjust preferences |
-| `/list`         | List all subscriptions |
-| `/subscribe <pokemon_name> [min-iv] [min-level] [max-distance]` | Subscribe to Pokémon alerts |
-| `/unsubscribe <pokemon_name>` | Unsubscribe from Pokémon alerts |
+| Command | Description |
+|---|---|
+| `/start` | Register with the bot and auto-detect language |
+| `/help` | Show available commands |
+| `/settings` | Open the interactive settings menu |
+| `/list` | List all active Pokémon subscriptions |
+| `/subscribe <name> [min-iv] [min-level] [max-distance]` | Subscribe to alerts for a specific Pokémon |
+| `/unsubscribe <name>` | Remove a Pokémon subscription |
+| `/locate <gym-name>` | Find a gym by name and send its location |
+| `/wo <gym-name>` | Alias for `/locate` |
 
-## Prometheus Metrics
+### ⚙️ Settings menu
 
-The bot exposes metrics at:
+The `/settings` command opens an inline keyboard with the following toggles and inputs:
 
-```sh
-http://localhost:9001/metrics
-```
+- 🌍 Language (English / German)
+- 📍 Home location (via shared Telegram location)
+- 📏 Max distance, min IV, min level
+- 🔔 Enable / disable all notifications
+- 🎭 Show / hide Pokémon stickers
+- 💯 100% IV, 🚫 0% IV, and 🏅 Top PVP global alerts
+- 🗺️ Map-only mode (Venue pin instead of text message)
+- 🗑️ Auto-cleanup of expired notifications
 
-### **Available Metrics:**
+Channel and admin-specific settings are shown automatically when the command is issued from a channel or by an admin.
 
-- `bot_notifications_total` – Total number of notifications sent.
-- `bot_messages_total` – Total number of messages sent.
-- `bot_cleanup_total` – Number of expired messages cleaned up.
-- `bot_encounters_count` – Number of Pokémon encounters retrieved.
-- `bot_users_count` – Number of users subscribed to notifications.
-- `bot_subscription_count` – Total number of subscriptions.
-- `bot_subscription_active_count` – Active Pokémon subscriptions.
+## 🔔 Notification loop
 
-## Contributing
+The bot checks for new encounters every **30 seconds**. Each cycle:
 
-Pull requests are welcome! Please follow the existing code structure and submit any improvements.
+1. 🗑️ Expired encounters are detected and their Telegram messages are deleted (if cleanup is enabled for the user).
+2. 🔍 Fresh encounters from the scanner database are fetched and matched against all active subscriptions and global alert filters.
+3. 📨 Matched users are notified; rate-limited users and already-notified encounter/user pairs are skipped.
 
-## License
+## 📊 Prometheus metrics
+
+Metrics are exposed at `http://localhost:9001/metrics` using a dedicated custom registry.
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `bot_notifications_total` | Counter | Encounter notifications dispatched |
+| `bot_messages_total` | Counter | Individual Telegram messages sent |
+| `bot_cleanup_total` | Gauge | Expired messages deleted |
+| `bot_encounters_count` | Gauge | Pokémon encounters fetched in the last cycle |
+| `bot_users_count` | Gauge | Users loaded into the active cache |
+| `bot_subscription_count` | Gauge | Total subscriptions loaded |
+| `bot_subscription_active_count` | Gauge | Subscriptions currently active |
+
+## 🤝 Contributing
+
+Pull requests are welcome. Please follow the existing code structure and include tests for any new logic.
+
+## 📄 License
 
 This project is licensed under the GNU General Public License v3. See the [LICENSE](LICENSE) file for details.
