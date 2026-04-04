@@ -25,7 +25,7 @@ WORKDIR /app
 # Copy the compiled Go binary from the builder stage
 COPY --from=builder /app/bot .
 
-COPY *.json ./
+COPY masterfile.json translations.json ./
 
 USER botuser
 

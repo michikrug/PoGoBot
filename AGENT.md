@@ -73,7 +73,7 @@ The notification loop reads exclusively from these caches, never from the DB dir
 ## Tech Stack
 
 | | |
-|---|---|
+| --- | --- |
 | **Language** | Go 1.26 |
 | **Bot API** | `gopkg.in/telebot.v3` (long-polling) |
 | **ORM** | `gorm.io/gorm` + MySQL driver (SQLite in tests only) |
@@ -259,3 +259,50 @@ This is an established pattern — follow it for any new multi-step flows.
 - **Do not call the DB interfaces directly from handlers.** Always go through the `data.go` wrapper functions so the caches stay consistent.
 - **Do not import the scanner DB schema** into bot DB migrations. The scanner DB is owned externally.
 - **Static files (`masterfile.json`, `translations.json`) are read at startup** from the working directory. Their paths are hardcoded; do not parameterise them via config unless you also update the Dockerfile.
+
+---
+
+## Translation generation
+
+`translations.json` and `masterfile.json` are generated files. **Do not edit them by hand.** Regenerate them by running:
+
+```sh
+python3 build_translations.py
+```
+
+Requires Python 3.10+, no third-party packages, and an internet connection.
+
+### How it works
+
+The script rebuilds `translations.json` from scratch in two steps:
+
+**Step 0 — Masterfile fetch**
+Downloads `master-latest-react-map.json` from [WatWowMap/Masterfile-Generator](https://github.com/WatWowMap/Masterfile-Generator) and saves it as `masterfile.json`. This is the authoritative source for Pokémon, form, move, and item data including English names and numeric IDs.
+
+**Step 1 — Game data**
+Fetches `{lang}.json` from [WatWowMap/pogo-translations](https://github.com/WatWowMap/pogo-translations). Builds a map of `English name → translated name` for every Pokémon, form, move, and item by matching numeric IDs (`poke_<id>`, `form_<id>`, `move_<id>`, `item_<id>`). Identical translations are always kept to avoid spurious `❌ Translation key not found` log lines at runtime.
+
+**Step 2 — Bot UI strings**
+Merges `bot_strings.json[lang]` into the output. These are the string literals used in `tr.T("…")` / `tr.Tf("…")` calls in Go source, maintained by hand.
+
+### Key files
+
+| File | Role |
+| --- | --- |
+| `build_translations.py` | Generator script — the only thing that should write `translations.json` and `masterfile.json` |
+| `bot_strings.json` | Hand-maintained bot UI strings: `{"de": {"English key": "German translation", …}}` |
+| `translations.json` | Generated output — committed to the repo, copied into Docker image |
+| `masterfile.json` | Generated output — committed to the repo, copied into Docker image |
+
+### Updating translations
+
+- **Game data changed upstream** (new Pokémon, moves, etc.): re-run the script, commit both output files.
+- **Bot UI string added or changed**: update `bot_strings.json`, re-run the script, commit all three files.
+- **Verify sync**: `python3 build_translations.py --check` exits 1 if any `tr.T`/`tr.Tf` key in Go source is missing from `bot_strings.json`.
+
+### `bot_strings.json` contract
+
+- Keys are the exact string literals passed to `tr.T("…")` or `tr.Tf("…")` in Go.
+- Values are the German translations.
+- The `--check` flag cross-references this file against the Go source and reports drift in both directions (keys in Go but missing from the file, and keys in the file no longer used in Go).
+- Do not add locale logic to Go code — all language switching goes through `getTranslation()` in `game_data.go`.

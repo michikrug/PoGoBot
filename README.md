@@ -118,6 +118,47 @@ Metrics are exposed at `http://localhost:9001/metrics` using a dedicated custom 
 | `bot_subscription_count` | Gauge | Total subscriptions loaded |
 | `bot_subscription_active_count` | Gauge | Subscriptions currently active |
 
+## 🌍 Translation generation
+
+Translated Pokémon names, form names, move names, and bot UI strings are stored
+in `translations.json` and `masterfile.json`. Both files are committed to the
+repository and copied into the Docker image at build time. They are regenerated
+by running:
+
+```sh
+python3 build_translations.py
+```
+
+The script requires Python 3.10+ and no third-party packages. It fetches two
+upstream sources over HTTPS and writes both output files in-place:
+
+| Source | What it provides |
+| --- | --- |
+| [WatWowMap/Masterfile-Generator](https://github.com/WatWowMap/Masterfile-Generator) `master-latest-react-map.json` | Pokémon, form, move, and item data with numeric IDs and English names → saved as `masterfile.json` |
+| [WatWowMap/pogo-translations](https://github.com/WatWowMap/pogo-translations) `{lang}.json` | Translated names keyed by `poke_<id>`, `form_<id>`, `move_<id>`, `item_<id>` |
+
+Bot UI strings are maintained by hand in `bot_strings.json` and merged in as a final step.
+
+### Options
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--lang CODE` | `de` | Language code to build |
+| `--masterfile FILE` | `masterfile.json` | Path to write the masterfile |
+| `--masterfile-url URL` | upstream URL | Override the masterfile download URL |
+| `--translations FILE` | `translations.json` | Path to write translations |
+| `--bot-strings FILE` | `bot_strings.json` | Path to the hand-maintained bot UI strings |
+| `--dry-run` | — | Print report only; do not write any files |
+| `--check` | — | Exit 1 if bot UI keys are missing or `bot_strings.json` is out of sync with Go source (useful for CI) |
+
+### Adding or updating a translation
+
+- **Game data** (Pokémon / form / move / item names): re-run the script; it
+  always fetches the latest upstream data.
+- **Bot UI strings**: edit `bot_strings.json` directly, then re-run the script.
+  The `--check` flag will report any keys present in Go source but missing from
+  `bot_strings.json`, and vice-versa.
+
 ## 🤝 Contributing
 
 Pull requests are welcome. Please follow the existing code structure and include tests for any new logic.
