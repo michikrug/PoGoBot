@@ -269,17 +269,12 @@ def print_report(
     step1_entries: dict,
     step1_missing: list[str],
     step2_entries: dict,
-    go_keys: list[str],
     final_map: dict,
     dry_run: bool,
-) -> int:
-    """
-    Print a human-readable summary.  Returns the number of problems detected
-    (missing bot UI translations + bot_strings.json/Go sync issues) used as
-    the --check exit signal.
-    """
+) -> None:
+    """Print a human-readable summary."""
     print("\n╔══════════════════════════════════════════════════════════╗")
-    print("║            build_translations.py — Report               ║")
+    print("║             build_translations.py — Report               ║")
     print("╚══════════════════════════════════════════════════════════╝")
 
     _section("Step 1 — Game data (Pokémon / forms / moves / items)")
@@ -292,6 +287,26 @@ def print_report(
         print("  Still missing     : 0 ✅")
 
     _section("Step 2 — Bot UI strings (bot_strings.json)")
+    print(f"  Entries in bot_strings.json[{lang!r}] : {len(step2_entries)}")
+
+    _section("Summary")
+    print(f"  Total entries in translations.json[{lang!r}] : {len(final_map)}")
+    if dry_run:
+        print("\n  [DRY RUN] translations.json was NOT modified.")
+    else:
+        print("\n  translations.json updated successfully.")
+
+
+def check_bot_strings(
+    lang: str,
+    step2_entries: dict,
+    go_keys: list[str],
+    final_map: dict,
+) -> int:
+    """
+    Cross-check bot_strings.json against Go source keys.
+    Prints findings and returns the number of problems (for --check exit code).
+    """
     bot_keys_set = set(step2_entries)
     go_keys_set = set(go_keys)
 
@@ -299,6 +314,7 @@ def print_report(
     in_bot_not_in_go = sorted(bot_keys_set - go_keys_set)
     missing_translations = [k for k in go_keys if k not in final_map]
 
+    _section("Go source cross-check")
     print(f"  Entries in bot_strings.json[{lang!r}] : {len(step2_entries)}")
     print(f"  Go source keys found              : {len(go_keys)}")
 
@@ -327,16 +343,7 @@ def print_report(
     else:
         print("  Bot UI translations covered : 100% ✅")
 
-    _section("Summary")
-    total = len(final_map)
-    print(f"  Total entries in translations.json[{lang!r}] : {total}")
-    if dry_run:
-        print("\n  [DRY RUN] translations.json was NOT modified.")
-    else:
-        print("\n  translations.json updated successfully.")
-
-    problems = len(in_go_not_in_bot) + len(missing_translations)
-    return problems
+    return len(in_go_not_in_bot) + len(missing_translations)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -362,34 +369,34 @@ def main() -> None:
     # ── Step 2 — Bot UI strings ───────────────────────────────────────────────
     step2_entries = load_bot_strings(args.bot_strings, lang)
 
-    project_root = str(Path(args.translations).parent)
-    go_keys = scan_go_keys(project_root)
-
-    # ── Build final map (Step 1 first; Step 2 fills in bot UI strings
-    #    — bot_strings.json takes precedence over game data for any
-    #    key that appears in both, so merge it last) ───────────────────────────
+    # ── Build final map ───────────────────────────────────────────────────────
+    # bot_strings.json takes precedence over game data for any overlapping key.
     final_map: dict[str, str] = {**step1_entries, **step2_entries}
 
     # ── Report ────────────────────────────────────────────────────────────────
-    problem_count = print_report(
+    print_report(
         lang,
         step1_entries,
         step1_missing,
         step2_entries,
-        go_keys,
         final_map,
         args.dry_run,
     )
 
     # ── Write ─────────────────────────────────────────────────────────────────
     if not args.dry_run:
-        translations = load_json(args.translations, "translations.json")
-        translations[lang] = dict(sorted(final_map.items()))
         with open(args.translations, "w", encoding="utf-8") as f:
-            json.dump(translations, f, ensure_ascii=False, indent=4)
+            json.dump(
+                {lang: dict(sorted(final_map.items()))}, f, ensure_ascii=False, indent=4
+            )
 
-    if args.check and problem_count > 0:
-        sys.exit(1)
+    # ── Check (requires Go source) ────────────────────────────────────────────
+    if args.check:
+        project_root = str(Path(args.translations).parent)
+        go_keys = scan_go_keys(project_root)
+        problem_count = check_bot_strings(lang, step2_entries, go_keys, final_map)
+        if problem_count > 0:
+            sys.exit(1)
 
 
 if __name__ == "__main__":
