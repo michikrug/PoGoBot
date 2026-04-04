@@ -205,7 +205,7 @@ func (s *NotificationService) sendMessage(userID int64, text, encounterID string
 // sendEncounterNotification delivers a full encounter notification to one user.
 func (s *NotificationService) sendEncounterNotification(user User, encounter EncounterData) {
 	if s.isRateLimited(user.ID) {
-		log.Printf("⏭️ Skipping notification for Pokémon #%d to %d (rate limited)", encounter.PokemonID, user.ID)
+		// log.Printf("⏭️ Skipping notification for Pokémon #%d to %d (rate limited)", encounter.PokemonID, user.ID)
 		return
 	}
 	if _, exists := s.notificationCache[encounter.ID][user.ID]; exists {
