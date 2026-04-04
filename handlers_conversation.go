@@ -227,7 +227,7 @@ func handleAddRaidSubscriptionLevel(c telebot.Context, pokemonID int) error {
 	if pokemonID == 0 {
 		// "all" path — raidLevel must be > 0; creates a level-only subscription (pkm=0, level=N).
 		if raidLevel == 0 {
-			return c.Send(tr.T("❌ To subscribe to all raids regardless of level, use /settings → Raids → All Raids"))
+			return c.Send(tr.T("❌ To subscribe to all raids regardless of level, use /settings → ") + tr.T("⚔️ Enable Notifications for all Raids"))
 		}
 		addRaidSubscription(getUserID(c), 0, raidLevel)
 		clearConversationState(userID)

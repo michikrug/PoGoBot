@@ -47,7 +47,8 @@ func toggleUserPreference(c telebot.Context, field string, toggle func(user *Use
 	user := getUserPreferences(getUserID(c))
 	newValue := toggle(&user)
 	updateUserPreference(user.ID, field, newValue)
-	settingsMessage, replyMarkup := buildSettings(user)
+	updated := userFromCache(getUserID(c))
+	settingsMessage, replyMarkup := buildSettings(updated)
 	return c.Edit(settingsMessage, replyMarkup, telebot.ModeMarkdown)
 }
 
@@ -384,7 +385,7 @@ func handleRaidSubscribe(c telebot.Context) error {
 	name := strings.Join(nameArgs, " ")
 	if strings.ToLower(name) == "all" || strings.ToLower(name) == "alle" {
 		if raidLevel == 0 {
-			return c.Send(tr.T("❌ To subscribe to all raids regardless of level, use /settings → Raids → All Raids"))
+			return c.Send(tr.T("❌ To subscribe to all raids regardless of level, use /settings → ") + tr.T("⚔️ Enable Notifications for all Raids"))
 		}
 		addRaidSubscription(userID, 0, raidLevel)
 		return c.Send(tr.Tf("✅ Subscribed to all level %d raids", raidLevel))
