@@ -84,14 +84,17 @@ func startMetricsServer() {
 	}()
 }
 
-// shutdownMetricsServerWithContext gracefully shuts down the metrics HTTP server with a parent context
-func shutdownMetricsServerWithContext(parentCtx context.Context) {
-	if metricsServer != nil {
-		ctx, cancel := context.WithTimeout(parentCtx, 5*time.Second)
-		defer cancel()
-		if err := metricsServer.Shutdown(ctx); err != nil {
-			log.Fatalf("❌ HTTP server shutdown failed: %v", err)
-		}
-		log.Println("✅ Metrics server shut down gracefully")
+// shutdownMetricsServer gracefully shuts down the metrics HTTP server,
+// allowing up to 5 seconds for in-flight requests to complete.
+func shutdownMetricsServer() {
+	if metricsServer == nil {
+		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := metricsServer.Shutdown(ctx); err != nil {
+		log.Printf("❌ HTTP server shutdown failed: %v", err)
+		return
+	}
+	log.Println("✅ Metrics server shut down gracefully")
 }

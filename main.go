@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"os"
 	"os/signal"
@@ -24,17 +23,16 @@ func main() {
 	// Initialize the entire application
 	initializeApplication()
 
+	// stopChannel is closed on shutdown to signal background goroutines.
+	stopChannel := make(chan struct{})
+
 	// Setup bot handlers and background processes.
 	setupBotHandlers()
-	startNotificationProcessing()
+	startNotificationProcessing(stopChannel)
 
 	// Initialize and start metrics server.
 	initMetrics()
 	startMetricsServer()
-
-	// Use a context with cancellation for graceful shutdown.
-	shutdownCtx, stop := context.WithCancel(context.Background())
-	defer stop()
 
 	// Listen for termination signals.
 	sigChan := make(chan os.Signal, 1)
@@ -42,13 +40,12 @@ func main() {
 	go func() {
 		sig := <-sigChan
 		log.Printf("🛑 Caught signal %v: shutting down", sig)
-		bot.Stop()
-		// Shutdown the metrics server gracefully.
-		shutdownMetricsServerWithContext(shutdownCtx)
-		stop() // Cancel the shutdown context
-		os.Exit(0)
+		close(stopChannel)      // stop notification processing loop
+		bot.Stop()              // unblock bot.Start() on the main goroutine
+		shutdownMetricsServer() // graceful HTTP drain
 	}()
 
-	// Start the bot.
+	// Start the bot — blocks until bot.Stop() is called.
 	bot.Start()
+	log.Println("✅ Shutdown complete")
 }

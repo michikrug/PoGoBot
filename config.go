@@ -53,12 +53,18 @@ var (
 var notificationService *NotificationService
 
 // startNotificationProcessing starts the background goroutine.
-func startNotificationProcessing() {
+// It stops cleanly when stop is closed.
+func startNotificationProcessing(stop <-chan struct{}) {
 	go func() {
 		for {
-			time.Sleep(30 * time.Second)
-			notificationService.cleanupMessages(userCache)
-			notificationService.processEncounters(userCache, activeSubscriptions)
+			select {
+			case <-stop:
+				log.Println("⏹️ Notification processing stopped")
+				return
+			case <-time.After(30 * time.Second):
+				notificationService.cleanupMessages(userCache)
+				notificationService.processEncounters(userCache, activeSubscriptions)
+			}
 		}
 	}()
 }
