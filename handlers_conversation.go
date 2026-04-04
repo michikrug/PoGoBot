@@ -57,7 +57,7 @@ func handleAddSubscriptionIV(c telebot.Context, pokemonID int) error {
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 
-	minIV, err := validateIntInRange(c.Text(), 0, 100, "❌ Invalid input! Please enter a valid IV percentage (0-100)")
+	minIV, err := validateIntInRange(c.Text(), 0, 100, tr.T("❌ Invalid input! Please enter a valid IV percentage (0-100)"))
 	if err != nil {
 		return c.Send(tr.T(err.Error()))
 	}
@@ -71,7 +71,7 @@ func handleAddSubscriptionLevel(c telebot.Context, pokemonID, minIV int) error {
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 
-	minLevel, err := validateIntInRange(c.Text(), 0, 40, "❌ Invalid input! Please enter a valid level (0-40)")
+	minLevel, err := validateIntInRange(c.Text(), 0, 40, tr.T("❌ Invalid input! Please enter a valid level (0-40)"))
 	if err != nil {
 		return c.Send(tr.T(err.Error()))
 	}
@@ -85,7 +85,7 @@ func handleAddSubscriptionDistance(c telebot.Context, pokemonID, minIV, minLevel
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 
-	maxDistance, err := validateIntInRange(c.Text(), 0, 999999, "❌ Invalid input! Please enter a valid distance (in m)")
+	maxDistance, err := validateIntInRange(c.Text(), 0, 999999, tr.T("❌ Invalid input! Please enter a valid distance (in m)"))
 	if err != nil {
 		return c.Send(tr.T(err.Error()))
 	}
@@ -104,7 +104,7 @@ func handleSetDistanceInput(c telebot.Context) error {
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 
-	maxDistance, err := validateIntInRange(c.Text(), 0, 999999, "❌ Invalid input! Please enter a valid distance (in m)")
+	maxDistance, err := validateIntInRange(c.Text(), 0, 999999, tr.T("❌ Invalid input! Please enter a valid distance (in m)"))
 	if err != nil {
 		return c.Send(tr.T(err.Error()))
 	}
@@ -120,7 +120,7 @@ func handleSetMinIVInput(c telebot.Context) error {
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 
-	minIV, err := validateIntInRange(c.Text(), 0, 100, "❌ Invalid input! Please enter a valid IV percentage (0-100)")
+	minIV, err := validateIntInRange(c.Text(), 0, 100, tr.T("❌ Invalid input! Please enter a valid IV percentage (0-100)"))
 	if err != nil {
 		return c.Send(tr.T(err.Error()))
 	}
@@ -139,7 +139,7 @@ func handleSetMinLevelInput(c telebot.Context) error {
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 
-	minLevel, err := validateIntInRange(c.Text(), 0, 40, "❌ Invalid input! Please enter a valid level (0-40)")
+	minLevel, err := validateIntInRange(c.Text(), 0, 40, tr.T("❌ Invalid input! Please enter a valid level (0-40)"))
 	if err != nil {
 		return c.Send(tr.T(err.Error()))
 	}
@@ -201,7 +201,7 @@ func handleAddRaidSubscriptionPokemon(c telebot.Context) error {
 
 	if strings.ToLower(name) == "all" || strings.ToLower(name) == "alle" {
 		userConversationStates[userID] = "add_raid_subscription_level_0"
-		return c.Send(tr.Tf("⚔️ Subscribing to %s raids. Enter the raid level (1-19, or 0 for any):", "all"))
+		return c.Send(tr.Tf("⚔️ Subscribing to raids. Enter the raid level (1-19):"))
 	}
 
 	pokemonID, err := getPokemonID(name)
@@ -219,7 +219,7 @@ func handleAddRaidSubscriptionLevel(c telebot.Context, pokemonID int) error {
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 
-	raidLevel, err := validateIntInRange(c.Text(), 0, 19, "❌ Invalid raid level! Please enter a level between 1 and 19")
+	raidLevel, err := validateIntInRange(c.Text(), 0, 19, tr.T("❌ Invalid raid level! Please enter a level between 1 and 19"))
 	if err != nil {
 		return c.Send(tr.T(err.Error()))
 	}
@@ -227,7 +227,7 @@ func handleAddRaidSubscriptionLevel(c telebot.Context, pokemonID int) error {
 	if pokemonID == 0 {
 		// "all" path — raidLevel must be > 0; creates a level-only subscription (pkm=0, level=N).
 		if raidLevel == 0 {
-			return c.Send(tr.T("❌ Use /raidsubscribe all <min-level> to subscribe to all raids"))
+			return c.Send(tr.T("❌ To subscribe to all raids regardless of level, use /settings → Raids → All Raids"))
 		}
 		addRaidSubscription(getUserID(c), 0, raidLevel)
 		clearConversationState(userID)
@@ -246,7 +246,7 @@ func handleSetRaidMinLevelInput(c telebot.Context) error {
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 
-	raidLevel, err := validateIntInRange(c.Text(), 0, 19, "❌ Invalid raid level! Please enter a level between 0 and 19")
+	raidLevel, err := validateIntInRange(c.Text(), 0, 19, tr.T("❌ Invalid raid level! Please enter a level between 0 and 19"))
 	if err != nil {
 		return c.Send(tr.T(err.Error()))
 	}

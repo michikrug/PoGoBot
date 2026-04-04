@@ -63,12 +63,12 @@ func buildSettings(user User) (string, *telebot.ReplyMarkup) {
 	btnListSubscriptions := telebot.InlineButton{Text: tr.T("📋 List all Pokémon Subscriptions"), Unique: "list_subscriptions"}
 	btnClearSubscriptions := telebot.InlineButton{Text: tr.T("🗑️ Clear all Pokémon Subscriptions"), Unique: "clear_subscriptions"}
 
-	allRaidsText := tr.T("⚔️ Disable All Raids Notifications")
+	allRaidsText := tr.T("⚔️ Disable Notifications for all Raids")
 	if !user.AllRaids {
-		allRaidsText = tr.T("⚔️ Enable All Raids Notifications")
+		allRaidsText = tr.T("⚔️ Enable Notifications for all Raids")
 	}
 	btnToggleAllRaids := telebot.InlineButton{Text: allRaidsText, Unique: "toggle_all_raids"}
-	btnSetRaidMinLevel := telebot.InlineButton{Text: tr.T("🔢 Set Raid Minimal Level"), Unique: "set_raid_min_level"}
+	btnSetRaidMinLevel := telebot.InlineButton{Text: tr.T("🔢 Set Minimal Level for all Raids"), Unique: "set_raid_min_level"}
 	btnAddRaidSubscription := telebot.InlineButton{Text: tr.T("⚔️ Add Raid Subscription"), Unique: "add_raid_subscription"}
 	btnListRaidSubscriptions := telebot.InlineButton{Text: tr.T("📋 List all Raid Subscriptions"), Unique: "list_raid_subscriptions"}
 	btnClearRaidSubscriptions := telebot.InlineButton{Text: tr.T("🗑️ Clear all Raid Subscriptions"), Unique: "clear_raid_subscriptions"}
@@ -384,7 +384,7 @@ func handleRaidSubscribe(c telebot.Context) error {
 	name := strings.Join(nameArgs, " ")
 	if strings.ToLower(name) == "all" || strings.ToLower(name) == "alle" {
 		if raidLevel == 0 {
-			return c.Send(tr.T("❌ Use /raidsubscribe all <min-level> to subscribe to all raids"))
+			return c.Send(tr.T("❌ To subscribe to all raids regardless of level, use /settings → Raids → All Raids"))
 		}
 		addRaidSubscription(userID, 0, raidLevel)
 		return c.Send(tr.Tf("✅ Subscribed to all level %d raids", raidLevel))
