@@ -63,7 +63,7 @@ func handleSetRaidMinLevelCallback(c telebot.Context) error {
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 	userConversationStates[userID] = "set_raid_min_level"
-	return c.Edit(tr.T("🔢 Enter the minimal raid level (1-19):"))
+	return c.Edit(tr.T("🔢 Enter the minimal raid level (1-19), or 0 to reset:"))
 }
 
 func handleAddRaidSubscriptionCallback(c telebot.Context) error {
@@ -161,14 +161,14 @@ func handleSetMinIVCallback(c telebot.Context) error {
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 	userConversationStates[userID] = "set_min_iv"
-	return c.Edit(tr.T("✨ Enter the minimal IV percentage (0-100):"))
+	return c.Edit(tr.T("✨ Enter the minimal IV percentage (0-100), or 0 to reset:"))
 }
 
 func handleSetMinLevelCallback(c telebot.Context) error {
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 	userConversationStates[userID] = "set_min_level"
-	return c.Edit(tr.T("🔢 Enter the minimal Pokémon level (1-40):"))
+	return c.Edit(tr.T("🔢 Enter the minimal Pokémon level (0-40), or 0 to reset:"))
 }
 
 // ── Admin callbacks ───────────────────────────────────────────────────────────

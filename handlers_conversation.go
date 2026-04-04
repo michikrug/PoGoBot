@@ -129,6 +129,9 @@ func handleSetMinIVInput(c telebot.Context) error {
 	updateUserPreference(getUserID(c), "MinIV", minIV)
 	clearConversationState(userID)
 
+	if minIV == 0 {
+		return c.Send(tr.T("✅ Minimal IV reset"))
+	}
 	return c.Send(tr.Tf("✅ Minimal IV updated to %d%%", minIV))
 }
 
@@ -145,6 +148,9 @@ func handleSetMinLevelInput(c telebot.Context) error {
 	updateUserPreference(getUserID(c), "MinLevel", minLevel)
 	clearConversationState(userID)
 
+	if minLevel == 0 {
+		return c.Send(tr.T("✅ Minimal Level reset"))
+	}
 	return c.Send(tr.Tf("✅ Minimal Level updated to %d", minLevel))
 }
 
@@ -219,14 +225,13 @@ func handleAddRaidSubscriptionLevel(c telebot.Context, pokemonID int) error {
 	}
 
 	if pokemonID == 0 {
-		// "all" path — raidLevel must be > 0
+		// "all" path — raidLevel must be > 0; creates a level-only subscription (pkm=0, level=N).
 		if raidLevel == 0 {
 			return c.Send(tr.T("❌ Use /raidsubscribe all <min-level> to subscribe to all raids"))
 		}
-		updateUserPreference(getUserID(c), "AllRaids", true)
-		updateUserPreference(getUserID(c), "RaidMinLevel", raidLevel)
+		addRaidSubscription(getUserID(c), 0, raidLevel)
 		clearConversationState(userID)
-		return c.Send(tr.Tf("✅ Subscribed to all raids (Min Level: %d)", raidLevel))
+		return c.Send(tr.Tf("✅ Subscribed to all level %d raids", raidLevel))
 	}
 
 	addRaidSubscription(getUserID(c), pokemonID, raidLevel)
@@ -241,13 +246,16 @@ func handleSetRaidMinLevelInput(c telebot.Context) error {
 	userID := c.Sender().ID
 	tr := newTranslatorFor(c)
 
-	raidLevel, err := validateIntInRange(c.Text(), 1, 19, "❌ Invalid raid level! Please enter a level between 1 and 19")
+	raidLevel, err := validateIntInRange(c.Text(), 0, 19, "❌ Invalid raid level! Please enter a level between 0 and 19")
 	if err != nil {
 		return c.Send(tr.T(err.Error()))
 	}
 
 	updateUserPreference(getUserID(c), "RaidMinLevel", raidLevel)
 	clearConversationState(userID)
+	if raidLevel == 0 {
+		return c.Send(tr.T("🔢 Raid Minimal Level reset"))
+	}
 	return c.Send(tr.Tf("🔢 Raid Minimal Level updated to %d", raidLevel))
 }
 

@@ -386,9 +386,8 @@ func handleRaidSubscribe(c telebot.Context) error {
 		if raidLevel == 0 {
 			return c.Send(tr.T("❌ Use /raidsubscribe all <min-level> to subscribe to all raids"))
 		}
-		updateUserPreference(userID, "AllRaids", true)
-		updateUserPreference(userID, "RaidMinLevel", raidLevel)
-		return c.Send(tr.Tf("✅ Subscribed to all raids (Min Level: %d)", raidLevel))
+		addRaidSubscription(userID, 0, raidLevel)
+		return c.Send(tr.Tf("✅ Subscribed to all level %d raids", raidLevel))
 	}
 
 	pokemonID, err := getPokemonID(name)
