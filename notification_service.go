@@ -516,3 +516,26 @@ func (s *NotificationService) generateNotificationText(user User, encounter Enco
 
 	return sb.String()
 }
+
+// ── Application-level singleton ───────────────────────────────────────────────
+
+// notificationService is the singleton used by the production application.
+// Tests create their own NotificationService with mocked dependencies instead.
+var notificationService *NotificationService
+
+// startNotificationProcessing starts the background notification goroutine.
+// It stops cleanly when stop is closed.
+func startNotificationProcessing(stop <-chan struct{}) {
+	go func() {
+		for {
+			select {
+			case <-stop:
+				log.Println("⏹️ Notification processing stopped")
+				return
+			case <-time.After(30 * time.Second):
+				notificationService.cleanupMessages(userCache)
+				notificationService.processEncounters(userCache, activeSubscriptions)
+			}
+		}
+	}()
+}

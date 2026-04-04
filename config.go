@@ -15,21 +15,25 @@ import (
 	"gorm.io/gorm"
 )
 
+// DBConfig holds the connection parameters for a single database.
+type DBConfig struct {
+	User string
+	Pass string
+	Name string
+	Host string
+}
+
+// DSN returns the MySQL DSN string for the given database configuration.
+func (c DBConfig) DSN() string {
+	return fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		c.User, c.Pass, c.Host, c.Name)
+}
+
 // Config holds all application configuration
 type Config struct {
 	// Database configurations
-	botDB struct {
-		User string
-		Pass string
-		Name string
-		Host string
-	}
-	scannerDB struct {
-		User string
-		Pass string
-		Name string
-		Host string
-	}
+	BotDB     DBConfig
+	ScannerDB DBConfig
 
 	// Bot configuration
 	BotToken string
@@ -47,27 +51,6 @@ var (
 	gameData     MasterFile
 	translations map[string]map[string]string
 )
-
-// notificationService is the singleton used by the production application.
-// Tests create their own NotificationService with mocked dependencies instead.
-var notificationService *NotificationService
-
-// startNotificationProcessing starts the background goroutine.
-// It stops cleanly when stop is closed.
-func startNotificationProcessing(stop <-chan struct{}) {
-	go func() {
-		for {
-			select {
-			case <-stop:
-				log.Println("⏹️ Notification processing stopped")
-				return
-			case <-time.After(30 * time.Second):
-				notificationService.cleanupMessages(userCache)
-				notificationService.processEncounters(userCache, activeSubscriptions)
-			}
-		}
-	}()
-}
 
 // initConfig initializes the application configuration
 func initConfig() {
@@ -98,16 +81,16 @@ func loadEnvironmentVariables() {
 	checkEnvVars(requiredVars)
 
 	// Load bot database configuration
-	appConfig.botDB.User = os.Getenv("BOT_DB_USER")
-	appConfig.botDB.Pass = os.Getenv("BOT_DB_PASS")
-	appConfig.botDB.Name = os.Getenv("BOT_DB_NAME")
-	appConfig.botDB.Host = os.Getenv("BOT_DB_HOST")
+	appConfig.BotDB.User = os.Getenv("BOT_DB_USER")
+	appConfig.BotDB.Pass = os.Getenv("BOT_DB_PASS")
+	appConfig.BotDB.Name = os.Getenv("BOT_DB_NAME")
+	appConfig.BotDB.Host = os.Getenv("BOT_DB_HOST")
 
 	// Load scanner database configuration
-	appConfig.scannerDB.User = os.Getenv("SCANNER_DB_USER")
-	appConfig.scannerDB.Pass = os.Getenv("SCANNER_DB_PASS")
-	appConfig.scannerDB.Name = os.Getenv("SCANNER_DB_NAME")
-	appConfig.scannerDB.Host = os.Getenv("SCANNER_DB_HOST")
+	appConfig.ScannerDB.User = os.Getenv("SCANNER_DB_USER")
+	appConfig.ScannerDB.Pass = os.Getenv("SCANNER_DB_PASS")
+	appConfig.ScannerDB.Name = os.Getenv("SCANNER_DB_NAME")
+	appConfig.ScannerDB.Host = os.Getenv("SCANNER_DB_HOST")
 
 	// Load bot token
 	appConfig.BotToken = os.Getenv("BOT_TOKEN")
@@ -126,51 +109,45 @@ func configureBotAdmins() {
 	log.Printf("✅ Configured %d bot administrators", len(appConfig.Admins))
 }
 
-// configureTimezone sets up the application timezone
+// configureTimezone sets up the application timezone.
+// BOT_TIMEZONE may be set to any IANA timezone name (e.g. "Europe/Berlin").
+// Falls back to UTC if the value is invalid.
 func configureTimezone() {
-	var err error
-	if appConfig.Timezone, err = time.LoadLocation("Local"); err != nil {
-		log.Printf("❌ Failed to load local timezone: %v", err)
-		appConfig.Timezone = time.UTC
+	tz := os.Getenv("BOT_TIMEZONE")
+	if tz == "" {
+		tz = "Local"
 	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		log.Printf("⚠️ Unknown timezone %q, falling back to UTC: %v", tz, err)
+		loc = time.UTC
+	}
+	appConfig.Timezone = loc
 	log.Printf("✅ Timezone set to: %s", appConfig.Timezone.String())
 }
 
 // initDatabases initializes both bot and scanner database connections
 func initDatabases() {
-	initBotDatabase()
-	initScannerDatabase()
-}
-
-// initBotDatabase initializes the bot database connection
-func initBotDatabase() {
-	configDSN := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		appConfig.botDB.User, appConfig.botDB.Pass, appConfig.botDB.Host, appConfig.botDB.Name)
-
-	db, err := gorm.Open(mysql.Open(configDSN), &gorm.Config{})
-	if err != nil {
-		log.Fatalf("❌ Failed to connect to bot database: %v", err)
+	db := openDatabase(appConfig.BotDB)
+	if err := db.AutoMigrate(&User{}, &Subscription{}, &Message{}, &Encounter{}); err != nil {
+		log.Fatalf("❌ Failed to auto-migrate bot database: %v", err)
 	}
+	botDB = &gormBotDB{db: db}
 	log.Println("✅ Connected to bot database")
 
-	// Auto-migrate database schema
-	db.AutoMigrate(&User{}, &Subscription{}, &Message{}, &Encounter{})
-
-	botDB = &gormBotDB{db: db}
+	scanDB := openDatabase(appConfig.ScannerDB)
+	scannerDB = &gormScannerDB{db: scanDB}
+	log.Println("✅ Connected to scanner database")
 }
 
-// initScannerDatabase initializes the scanner database connection
-func initScannerDatabase() {
-	scannerDSN := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		appConfig.scannerDB.User, appConfig.scannerDB.Pass, appConfig.scannerDB.Host, appConfig.scannerDB.Name)
-
-	db, err := gorm.Open(mysql.Open(scannerDSN), &gorm.Config{})
+// openDatabase opens a GORM MySQL connection for the given DBConfig.
+// Calls log.Fatalf on failure.
+func openDatabase(cfg DBConfig) *gorm.DB {
+	db, err := gorm.Open(mysql.Open(cfg.DSN()), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("❌ Failed to connect to scanner database: %v", err)
+		log.Fatalf("❌ Failed to connect to database (%s): %v", cfg.Name, err)
 	}
-	log.Println("✅ Connected to scanner database")
-
-	scannerDB = &gormScannerDB{db: db}
+	return db
 }
 
 // initBot initializes the Telegram bot
@@ -261,8 +238,9 @@ func initializeApplication() {
 	loadStaticFiles()
 	loadPokemonNameMappings()
 
-	// Initialize databases — sets botDB and scannerDB
+	// Initialize databases — sets the global botDB and scannerDB vars.
 	initDatabases()
+	// Warm the in-memory user and subscription caches used by the notification loop.
 	getUsersByFilters()
 	getActiveSubscriptions(botDB)
 
