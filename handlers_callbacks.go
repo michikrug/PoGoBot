@@ -165,8 +165,13 @@ func handleListUsersCallback(c telebot.Context) error {
 		if isChannelID(user.ID) {
 			continue
 		}
-		chatInfo, _ := bot.ChatByID(user.ID)
-		entry := fmt.Sprintf("🔹 %s %s @%s (%d) - Notify: %s\n", chatInfo.FirstName, chatInfo.LastName, chatInfo.Username, user.ID, boolToEmoji(user.Notify))
+		chatInfo, err := bot.ChatByID(user.ID)
+		var entry string
+		if err != nil || chatInfo == nil {
+			entry = fmt.Sprintf("🔹 (unknown) (%d) - Notify: %s\n", user.ID, boolToEmoji(user.Notify))
+		} else {
+			entry = fmt.Sprintf("🔹 %s %s @%s (%d) - Notify: %s\n", chatInfo.FirstName, chatInfo.LastName, chatInfo.Username, user.ID, boolToEmoji(user.Notify))
+		}
 		if text.Len()+len(entry) > 4000 {
 			c.Send(text.String())
 			text.Reset()
@@ -188,10 +193,18 @@ func handleListChannelsCallback(c telebot.Context) error {
 
 	inlineKeyboard := [][]telebot.InlineButton{}
 	for _, channel := range userCache.Channels {
-		chatInfo, _ := bot.ChatByID(channel.ID)
-		text.WriteString(fmt.Sprintf("🔹 %s @%s (%d) - Notify: %s\n", chatInfo.Title, chatInfo.Username, channel.ID, boolToEmoji(channel.Notify)))
+		chatInfo, err := bot.ChatByID(channel.ID)
+		var title, username string
+		if err != nil || chatInfo == nil {
+			title = fmt.Sprintf("(%d)", channel.ID)
+			username = ""
+		} else {
+			title = chatInfo.Title
+			username = chatInfo.Username
+		}
+		text.WriteString(fmt.Sprintf("🔹 %s @%s (%d) - Notify: %s\n", title, username, channel.ID, boolToEmoji(channel.Notify)))
 		btnEditChannel := telebot.InlineButton{
-			Text:   tr.Tf("✏️ Edit %s", chatInfo.Title),
+			Text:   tr.Tf("✏️ Edit %s", title),
 			Unique: "edit_channel",
 			Data:   strconv.FormatInt(channel.ID, 10),
 		}
