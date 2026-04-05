@@ -457,9 +457,17 @@ func handleRaidUnsubscribe(c telebot.Context) error {
 
 	name := strings.Join(nameArgs, " ")
 	if strings.ToLower(name) == "all" || strings.ToLower(name) == "alle" {
+		if raidLevel != 0 {
+			// Remove only the specific level-based "all pokemon" subscription row.
+			deleteRaidSubscription(userID, 0, raidLevel)
+			return c.Send(tr.Tf("✅ Unsubscribed from all level %d raids", raidLevel))
+		}
+		// No level specified: remove the AllRaids preference AND all specific subscription rows.
 		updateUserPreference(userID, "AllRaids", false)
 		updateUserPreference(userID, "RaidMinLevel", 0)
-		return c.Send(tr.Tf("✅ Unsubscribed from level %d raids", raidLevel))
+		deleteAllUserRaidSubscriptions(userID)
+		getRaidActiveSubscriptions(botDB)
+		return c.Send(tr.T("✅ Unsubscribed from all raids"))
 	}
 
 	pokemonID, err := getPokemonID(name)
