@@ -53,7 +53,7 @@ type Subscription struct {
 
 // Encounter represents a tracked Pokémon encounter
 type Encounter struct {
-	ID         string `gorm:"primaryKey;autoIncrement:false;type:varchar(100)"`
+	ID         string `gorm:"primaryKey;autoIncrement:false;type:varchar(50)"`
 	Expiration int    `gorm:"index;not null;type:int(10)"`
 }
 
@@ -61,7 +61,7 @@ type Encounter struct {
 type Message struct {
 	ChatID      int64  `gorm:"primaryKey;autoIncrement:false"`
 	MessageID   int    `gorm:"primaryKey;autoIncrement:false"`
-	EncounterID string `gorm:"index;not null;type:varchar(100)"`
+	EncounterID string `gorm:"index;not null;type:varchar(50)"`
 }
 
 // EncounterData represents the complete Pokémon encounter data from the scanner database
