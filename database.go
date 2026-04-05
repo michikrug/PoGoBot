@@ -159,13 +159,14 @@ func (r *gormScannerDB) GetGymByID(id string) GymData {
 }
 
 // GetActiveRaids returns all gyms that currently have an active raid boss visible
-// (battle_timestamp <= now < end_timestamp, raid_pokemon_id IS NOT NULL and != 0).
+// (battle_timestamp <= now < end_timestamp, raid_pokemon_id IS NOT NULL and != 0)
+// and whose row was updated within the last 30 seconds.
 func (r *gormScannerDB) GetActiveRaids() ([]GymData, error) {
-	now := time.Now().Unix()
+	lastCheck := time.Now().Unix() - 30
 	var gyms []GymData
 	err := r.db.Where(
-		"raid_pokemon_id IS NOT NULL AND raid_pokemon_id != 0 AND raid_battle_timestamp <= ? AND raid_end_timestamp > ?",
-		now, now,
+		"raid_pokemon_id IS NOT NULL AND raid_pokemon_id != 0 AND raid_battle_timestamp <= ? AND raid_end_timestamp > ? AND updated > ?",
+		lastCheck+30, lastCheck, lastCheck,
 	).Find(&gyms).Error
 	return gyms, err
 }
