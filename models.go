@@ -129,8 +129,8 @@ type GymData struct {
 	Enabled                *int
 	ExRaidEligible         *int
 	InBattle               *int
-	RaidPokemonMove1       *int
-	RaidPokemonMove2       *int
+	RaidPokemonMove1       *int `gorm:"column:raid_pokemon_move_1"`
+	RaidPokemonMove2       *int `gorm:"column:raid_pokemon_move_2"`
 	RaidPokemonForm        *int
 	RaidPokemonAlignment   *int
 	RaidPokemonCp          *int

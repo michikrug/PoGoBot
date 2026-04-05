@@ -234,20 +234,21 @@ def build_game_data_translations(
 
 def build_team_raid_translations(lang_src: dict) -> dict:
     """
-    Return {key: translated_name} for all team_<id> and raid_<id> entries in
-    lang_src, skipping the _plural variants.  The keys are kept as-is (e.g.
-    "team_1", "raid_5") so the Go Translator can look them up directly by
-    numeric ID without going through the masterfile's generic English strings.
+    Return {key: translated_name} for all team_<id>, raid_<id> and
+    alignment_<id> entries in lang_src, skipping the _plural variants.  The
+    keys are kept as-is (e.g. "team_1", "raid_5", "alignment_1") so the Go
+    Translator can look them up directly by numeric ID without going through
+    the masterfile's generic English strings.
     """
     entries: dict[str, str] = {}
     for key, value in lang_src.items():
-        if key.startswith("team_") and not key.endswith("_plural"):
-            # Skip the "team_a_<id>" variant (full "Team Mystic" form); we only
-            # want the short names (team_1 → "Mystic" / "Weisheit").
+        if key.startswith("team_"):
             parts = key.split("_")
             if len(parts) == 2:
                 entries[key] = value
         elif key.startswith("raid_") and not key.endswith("_plural"):
+            entries[key] = value
+        elif key.startswith("alignment_"):
             entries[key] = value
     return entries
 

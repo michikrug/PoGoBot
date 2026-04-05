@@ -82,6 +82,18 @@ func (tr Translator) TeamName(teamID int) string {
 	return translated
 }
 
+// AlignmentName returns the localised alignment name for the given alignment ID
+// (0=Unset, 1=Shadow, 2=Purified). Falls back to "Alignment <n>" for unknown IDs.
+func (tr Translator) AlignmentName(alignmentID int) string {
+	key := fmt.Sprintf("alignment_%d", alignmentID)
+	translated := tr.T(key)
+	if translated == key {
+		// No translation found — produce a generic numeric label.
+		return fmt.Sprintf("Alignment %d", alignmentID)
+	}
+	return translated
+}
+
 // getTranslation returns the translation for key in the requested language.
 // For English it first checks the "en" section of translations (which holds
 // canonical brand names for team_<id> and raid_<id> keys), then falls back to

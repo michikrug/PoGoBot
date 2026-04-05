@@ -1591,7 +1591,7 @@ func TestGenerateRaidNotificationText_EXFlag(t *testing.T) {
 
 	gym := testRaidGym("g4", 5, 25, false)
 	exVal := 1
-	gym.ExRaidEligible = &exVal
+	gym.RaidIsExclusive = &exVal
 	text := svc.generateRaidNotificationText(notifyUser(1), gym)
 	assert.Contains(t, text, "✨EX")
 }
@@ -1601,7 +1601,7 @@ func TestGenerateRaidNotificationText_NoExFlag_WhenZero(t *testing.T) {
 
 	gym := testRaidGym("g5", 5, 25, false)
 	exVal := 0
-	gym.ExRaidEligible = &exVal
+	gym.RaidIsExclusive = &exVal
 	text := svc.generateRaidNotificationText(notifyUser(1), gym)
 	assert.NotContains(t, text, "EX")
 }

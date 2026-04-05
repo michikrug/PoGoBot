@@ -728,11 +728,22 @@ func (s *NotificationService) generateRaidNotificationTitle(user User, gym GymDa
 	}
 	name := tr.PokemonName(pokemonID)
 	formSuffix := s.buildFormSuffix(pokemonID, gym.RaidPokemonForm, user.Language)
+	genderEmoji := getGenderEmoji(gym.RaidPokemonGender)
+	alignmentSuffix := ""
+	if gym.RaidPokemonAlignment != nil && *gym.RaidPokemonAlignment != 0 {
+		alignmentSuffix = " " + tr.AlignmentName(*gym.RaidPokemonAlignment)
+	}
+	cpSuffix := ""
+	if gym.RaidPokemonCp != nil {
+		cpSuffix = fmt.Sprintf(" %d%s", *gym.RaidPokemonCp, tr.T("CP"))
+	}
 	gymName := gym.ID
 	if gym.Name != nil {
 		gymName = *gym.Name
 	}
-	return fmt.Sprintf("*⚔️ %s%s (%s) @ %s*", name, formSuffix, tr.RaidLevelName(raidLevel), gymName)
+	return fmt.Sprintf("*⚔️ %s%s%s%s%s (%s) @ %s*",
+		name, formSuffix, genderEmoji, alignmentSuffix, cpSuffix,
+		tr.RaidLevelName(raidLevel), gymName)
 }
 
 func (s *NotificationService) generateRaidNotificationText(user User, gym GymData) string {
@@ -747,7 +758,7 @@ func (s *NotificationService) generateRaidNotificationText(user User, gym GymDat
 	if gym.RaidEndTimestamp != nil {
 		endTime := time.Unix(int64(*gym.RaidEndTimestamp), 0).In(s.timezone)
 		timeLeft := time.Until(endTime)
-		sb.WriteString(fmt.Sprintf("⏳ %s (%s)\n",
+		sb.WriteString(fmt.Sprintf("💨 %s ⏳ %s\n",
 			endTime.Format(time.TimeOnly),
 			timeLeft.Truncate(time.Second).String()))
 	}
@@ -764,7 +775,7 @@ func (s *NotificationService) generateRaidNotificationText(user User, gym GymDat
 		teamName = tr.TeamName(*gym.TeamID)
 	}
 	exFlag := ""
-	if gym.ExRaidEligible != nil && *gym.ExRaidEligible != 0 {
+	if gym.RaidIsExclusive != nil && *gym.RaidIsExclusive != 0 {
 		exFlag = " ✨EX"
 	}
 	sb.WriteString(fmt.Sprintf("🏟️ %s%s", teamName, exFlag))

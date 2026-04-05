@@ -1841,6 +1841,9 @@
         "Event Pass Point Live Ops 06": "Pass-Punkte",
         "Event Pass Point Monthly 01": "Pass-Punkte",
         "Event Pass Point Monthly 02": "Pass-Punkte",
+        "alignment_0": "Alignment Unset",
+        "alignment_1": "Crypto",
+        "alignment_2": "Erlöst",
         "raid_0": "Unset Raid",
         "raid_1": "1 Stern Raid",
         "raid_2": "2 Stern Raid",
@@ -2004,6 +2007,9 @@
         "🔢 Raid Minimal Level updated to %d": "🔢 Raid-Mindestlevel auf %d gesetzt"
     },
     "en": {
+        "alignment_0": "Alignment Unset",
+        "alignment_1": "Shadow",
+        "alignment_2": "Purified",
         "raid_0": "Unset Raid",
         "raid_1": "1 Star Raid",
         "raid_2": "2 Star Raid",
