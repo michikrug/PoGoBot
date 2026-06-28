@@ -129,6 +129,9 @@
                 "896": {
                     "name": "Fall 2019",
                     "isCostume": true
+                },
+                "3354": {
+                    "name": "Goggles 2026"
                 }
             },
             "height": 0.6,
@@ -159,6 +162,9 @@
             "forms": {
                 "175": {
                     "name": "Normal"
+                },
+                "3355": {
+                    "name": "Goggles 2026"
                 }
             },
             "height": 1.1,
@@ -194,6 +200,9 @@
                 },
                 "951": {
                     "name": "Copy 2019"
+                },
+                "3356": {
+                    "name": "Goggles 2026"
                 }
             },
             "height": 1.7,
@@ -328,6 +337,10 @@
             "forms": {
                 "953": {
                     "name": "Normal"
+                },
+                "3346": {
+                    "name": "Gofest 2026",
+                    "isCostume": true
                 }
             },
             "height": 0.3,
@@ -567,6 +580,7 @@
             "chargedMoves": [
                 42,
                 45,
+                80,
                 122,
                 256,
                 348
@@ -1149,10 +1163,36 @@
                     "isCostume": true
                 },
                 "3341": {
-                    "name": "Visor 2026"
+                    "name": "Visor 2026",
+                    "isCostume": true
                 },
                 "3342": {
-                    "name": "Fossil 2026"
+                    "name": "Fossil 2026",
+                    "isCostume": true
+                },
+                "3343": {
+                    "name": "Gofest 2026 Cap Blue",
+                    "isCostume": true
+                },
+                "3344": {
+                    "name": "Gofest 2026 Cap Red",
+                    "isCostume": true
+                },
+                "3345": {
+                    "name": "Gofest 2026 Cap Yellow",
+                    "isCostume": true
+                },
+                "3348": {
+                    "name": "Anniversary 2026"
+                },
+                "3352": {
+                    "name": "Pxp 2026"
+                },
+                "3353": {
+                    "name": "Wcs 2026"
+                },
+                "3357": {
+                    "name": "Glass Helmet 2026"
                 }
             },
             "height": 0.4,
@@ -4664,6 +4704,7 @@
             "chargedMoves": [
                 30,
                 39,
+                57,
                 65,
                 78,
                 107,
@@ -4985,17 +5026,19 @@
         },
         "129": {
             "name": "Magikarp",
-            "pokedexId": 129,
-            "defaultFormId": 253,
-            "types": [
-                11
-            ],
             "quickMoves": [
                 231
             ],
             "chargedMoves": [
                 133
             ],
+            "types": [
+                11
+            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 129,
+            "defaultFormId": 253,
             "genId": 1,
             "generation": "Kanto",
             "forms": {
@@ -5006,8 +5049,6 @@
             "height": 0.9,
             "weight": 10,
             "family": 129,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "130": {
@@ -5384,6 +5425,7 @@
             ],
             "chargedMoves": [
                 32,
+                57,
                 62,
                 105
             ],
@@ -5560,6 +5602,7 @@
                 "2800": {
                     "name": "Galarian",
                     "quickMoves": [
+                        207,
                         243
                     ],
                     "chargedMoves": [
@@ -5779,12 +5822,8 @@
             "mythical": false,
             "ultraBeast": false,
             "tempEvolutions": {
-                "2": {
-                    "unreleased": true
-                },
-                "3": {
-                    "unreleased": true
-                }
+                "2": {},
+                "3": {}
             }
         },
         "151": {
@@ -6323,13 +6362,15 @@
             "quickMoves": [
                 201,
                 243,
-                261
+                261,
+                368
             ],
             "chargedMoves": [
                 45,
                 49,
                 246,
-                262
+                262,
+                364
             ],
             "genId": 2,
             "generation": "Johto",
@@ -6711,6 +6752,7 @@
                 45,
                 60,
                 69,
+                70,
                 275
             ],
             "genId": 2,
@@ -7613,6 +7655,8 @@
             "ultraBeast": false
         },
         "203": {
+            "legendary": false,
+            "mythical": false,
             "name": "Girafarig",
             "pokedexId": 203,
             "defaultFormId": 1241,
@@ -7642,8 +7686,6 @@
             "height": 1.5,
             "weight": 41.5,
             "family": 203,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "204": {
@@ -7885,6 +7927,7 @@
             "chargedMoves": [
                 39,
                 58,
+                70,
                 91,
                 106,
                 303,
@@ -8444,6 +8487,7 @@
                 39,
                 45,
                 53,
+                80,
                 105
             ],
             "genId": 2,
@@ -8491,9 +8535,7 @@
             "mythical": false,
             "ultraBeast": false,
             "tempEvolutions": {
-                "1": {
-                    "unreleased": true
-                }
+                "1": {}
             }
         },
         "228": {
@@ -8579,6 +8621,7 @@
                 107,
                 125,
                 277,
+                284,
                 308
             ],
             "genId": 2,
@@ -12849,7 +12892,9 @@
                 39,
                 45,
                 66,
+                77,
                 78,
+                246,
                 280
             ],
             "genId": 3,
@@ -15358,6 +15403,8 @@
             ],
             "chargedMoves": [
                 14,
+                70,
+                77,
                 115,
                 247,
                 391
@@ -16291,7 +16338,8 @@
             ],
             "quickMoves": [
                 230,
-                283
+                283,
+                345
             ],
             "chargedMoves": [
                 40,
@@ -16527,6 +16575,7 @@
             "chargedMoves": [
                 31,
                 32,
+                46,
                 284,
                 302,
                 310,
@@ -18676,7 +18725,8 @@
             ],
             "quickMoves": [
                 233,
-                297
+                297,
+                325
             ],
             "chargedMoves": [
                 64,
@@ -18934,7 +18984,8 @@
             ],
             "quickMoves": [
                 224,
-                243
+                243,
+                462
             ],
             "chargedMoves": [
                 32,
@@ -19030,6 +19081,7 @@
             ],
             "chargedMoves": [
                 90,
+                111,
                 304,
                 316
             ],
@@ -20521,11 +20573,13 @@
             ],
             "quickMoves": [
                 230,
-                255
+                255,
+                345
             ],
             "chargedMoves": [
                 39,
                 53,
+                57,
                 122,
                 341
             ],
@@ -24199,7 +24253,8 @@
             ],
             "quickMoves": [
                 249,
-                320
+                320,
+                350
             ],
             "chargedMoves": [
                 60,
@@ -24760,9 +24815,11 @@
             ],
             "quickMoves": [
                 219,
-                320
+                320,
+                350
             ],
             "chargedMoves": [
+                70,
                 85,
                 86,
                 87
@@ -24918,6 +24975,7 @@
                 16
             ],
             "quickMoves": [
+                204,
                 221,
                 230
             ],
@@ -24925,6 +24983,7 @@
                 82,
                 91,
                 105,
+                131,
                 316
             ],
             "genId": 6,
@@ -27892,17 +27951,19 @@
         },
         "789": {
             "name": "Cosmog",
-            "pokedexId": 789,
-            "defaultFormId": 3134,
-            "types": [
-                14
-            ],
             "quickMoves": [
                 231
             ],
             "chargedMoves": [
                 133
             ],
+            "types": [
+                14
+            ],
+            "legendary": true,
+            "mythical": false,
+            "pokedexId": 789,
+            "defaultFormId": 3134,
             "genId": 7,
             "generation": "Alola",
             "forms": {
@@ -27913,23 +27974,23 @@
             "height": 0.2,
             "weight": 0.1,
             "family": 789,
-            "legendary": true,
-            "mythical": false,
             "ultraBeast": false
         },
         "790": {
             "name": "Cosmoem",
-            "pokedexId": 790,
-            "defaultFormId": 3135,
-            "types": [
-                14
-            ],
             "quickMoves": [
                 231
             ],
             "chargedMoves": [
                 133
             ],
+            "types": [
+                14
+            ],
+            "legendary": true,
+            "mythical": false,
+            "pokedexId": 790,
+            "defaultFormId": 3135,
             "genId": 7,
             "generation": "Alola",
             "forms": {
@@ -27940,8 +28001,6 @@
             "height": 0.1,
             "weight": 999.9,
             "family": 789,
-            "legendary": true,
-            "mythical": false,
             "ultraBeast": false
         },
         "791": {
@@ -28296,18 +28355,58 @@
         },
         "801": {
             "name": "Magearna",
-            "pokedexId": 801,
-            "defaultFormId": 2721,
+            "quickMoves": [
+                234,
+                249,
+                250,
+                281,
+                282,
+                325,
+                368,
+                402
+            ],
+            "chargedMoves": [
+                14,
+                30,
+                36,
+                39,
+                60,
+                70,
+                74,
+                79,
+                84,
+                85,
+                86,
+                88,
+                99,
+                108,
+                116,
+                123,
+                125,
+                131,
+                132,
+                247,
+                248,
+                252,
+                267,
+                268,
+                272,
+                273,
+                300,
+                309,
+                321,
+                324,
+                332,
+                344
+            ],
             "types": [
                 9,
                 18
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": true,
+            "pokedexId": 801,
+            "defaultFormId": 2721,
             "genId": 7,
             "generation": "Alola",
             "forms": {
@@ -28321,8 +28420,6 @@
             "height": 1,
             "weight": 80.5,
             "family": 801,
-            "legendary": false,
-            "mythical": true,
             "ultraBeast": false,
             "tempEvolutions": {
                 "1": {
@@ -28504,7 +28601,8 @@
             "chargedMoves": [
                 35,
                 77,
-                251
+                251,
+                497
             ],
             "genId": 7,
             "generation": "Alola",
@@ -28568,6 +28666,7 @@
                 36,
                 64,
                 79,
+                246,
                 310
             ],
             "genId": 7,
@@ -29658,6 +29757,12 @@
             "forms": {
                 "3182": {
                     "name": "Normal"
+                },
+                "3349": {
+                    "name": "Gulping"
+                },
+                "3350": {
+                    "name": "Gorging"
                 }
             },
             "height": 0.8,
@@ -30455,9 +30560,7 @@
             "mythical": false,
             "ultraBeast": false,
             "tempEvolutions": {
-                "1": {
-                    "unreleased": true
-                }
+                "1": {}
             }
         },
         "871": {
@@ -31570,10 +31673,12 @@
                 39,
                 40,
                 57,
+                58,
                 70,
                 105,
                 107,
                 111,
+                125,
                 132,
                 265,
                 277,
@@ -31589,7 +31694,6 @@
                 8,
                 11
             ],
-            "unreleased": true,
             "legendary": false,
             "mythical": false,
             "pokedexId": 902,
@@ -31972,6 +32076,7 @@
                 11
             ],
             "quickMoves": [
+                207,
                 210,
                 230
             ],
@@ -34199,18 +34304,48 @@
         },
         "984": {
             "name": "Greattusk",
-            "pokedexId": 984,
-            "defaultFormId": 3294,
+            "quickMoves": [
+                216,
+                233,
+                234,
+                240,
+                282,
+                297,
+                326,
+                327,
+                368
+            ],
+            "chargedMoves": [
+                14,
+                22,
+                26,
+                31,
+                32,
+                36,
+                60,
+                63,
+                64,
+                74,
+                88,
+                95,
+                123,
+                126,
+                131,
+                132,
+                245,
+                268,
+                304,
+                321,
+                377
+            ],
             "types": [
                 2,
                 5
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 984,
+            "defaultFormId": 3294,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34221,24 +34356,57 @@
             "height": 2.2,
             "weight": 320,
             "family": 984,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "985": {
             "name": "Screamtail",
-            "pokedexId": 985,
-            "defaultFormId": 3295,
+            "quickMoves": [
+                202,
+                222,
+                234,
+                240,
+                282,
+                326,
+                327
+            ],
+            "chargedMoves": [
+                14,
+                24,
+                26,
+                30,
+                33,
+                39,
+                40,
+                60,
+                63,
+                77,
+                78,
+                79,
+                86,
+                88,
+                103,
+                105,
+                108,
+                115,
+                131,
+                132,
+                247,
+                267,
+                272,
+                279,
+                314,
+                321,
+                353,
+                380
+            ],
             "types": [
                 14,
                 18
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 985,
+            "defaultFormId": 3295,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34249,24 +34417,46 @@
             "height": 1.2,
             "weight": 8,
             "family": 985,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "986": {
             "name": "Brutebonnet",
-            "pokedexId": 986,
-            "defaultFormId": 3296,
+            "quickMoves": [
+                203,
+                234,
+                263,
+                264,
+                271,
+                357
+            ],
+            "chargedMoves": [
+                14,
+                16,
+                48,
+                59,
+                114,
+                116,
+                131,
+                132,
+                245,
+                272,
+                273,
+                277,
+                279,
+                304,
+                321,
+                333,
+                343,
+                392
+            ],
             "types": [
                 12,
                 17
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 986,
+            "defaultFormId": 3296,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34277,24 +34467,47 @@
             "height": 1.2,
             "weight": 21,
             "family": 986,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "987": {
             "name": "Fluttermane",
-            "pokedexId": 987,
-            "defaultFormId": 3297,
+            "quickMoves": [
+                249,
+                263,
+                264,
+                320,
+                357
+            ],
+            "chargedMoves": [
+                14,
+                16,
+                30,
+                60,
+                65,
+                70,
+                78,
+                79,
+                84,
+                85,
+                86,
+                87,
+                111,
+                125,
+                132,
+                265,
+                273,
+                321,
+                376,
+                382
+            ],
             "types": [
                 8,
                 18
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 987,
+            "defaultFormId": 3297,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34305,24 +34518,50 @@
             "height": 1.4,
             "weight": 4,
             "family": 987,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "988": {
             "name": "Slitherwing",
-            "pokedexId": 988,
-            "defaultFormId": 3298,
+            "quickMoves": [
+                201,
+                207,
+                209,
+                234,
+                282,
+                345
+            ],
+            "chargedMoves": [
+                14,
+                31,
+                42,
+                45,
+                49,
+                56,
+                101,
+                114,
+                122,
+                123,
+                127,
+                131,
+                132,
+                245,
+                251,
+                268,
+                306,
+                313,
+                321,
+                364,
+                377,
+                392
+            ],
             "types": [
                 2,
                 7
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 988,
+            "defaultFormId": 3298,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34333,24 +34572,50 @@
             "height": 3.2,
             "weight": 92,
             "family": 988,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "989": {
             "name": "Sandyshocks",
-            "pokedexId": 989,
-            "defaultFormId": 3299,
+            "quickMoves": [
+                205,
+                206,
+                216,
+                249,
+                250,
+                282,
+                402
+            ],
+            "chargedMoves": [
+                14,
+                31,
+                35,
+                36,
+                65,
+                78,
+                79,
+                95,
+                125,
+                131,
+                132,
+                251,
+                252,
+                258,
+                268,
+                276,
+                304,
+                321,
+                344,
+                377,
+                393
+            ],
             "types": [
                 5,
                 13
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 989,
+            "defaultFormId": 3299,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34361,24 +34626,50 @@
             "height": 2.3,
             "weight": 60,
             "family": 989,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "990": {
             "name": "Irontreads",
-            "pokedexId": 990,
-            "defaultFormId": 3300,
+            "quickMoves": [
+                216,
+                233,
+                234,
+                250,
+                282,
+                326,
+                327,
+                368,
+                402
+            ],
+            "chargedMoves": [
+                14,
+                22,
+                31,
+                32,
+                36,
+                63,
+                64,
+                74,
+                78,
+                95,
+                126,
+                131,
+                132,
+                251,
+                267,
+                268,
+                304,
+                321,
+                377
+            ],
             "types": [
                 5,
                 9
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 990,
+            "defaultFormId": 3300,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34389,24 +34680,42 @@
             "height": 0.9,
             "weight": 240,
             "family": 990,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "991": {
             "name": "Ironbundle",
-            "pokedexId": 991,
-            "defaultFormId": 3301,
+            "quickMoves": [
+                244,
+                282,
+                291
+            ],
+            "chargedMoves": [
+                14,
+                33,
+                38,
+                39,
+                40,
+                88,
+                105,
+                107,
+                111,
+                121,
+                125,
+                131,
+                132,
+                254,
+                321,
+                364,
+                488
+            ],
             "types": [
                 11,
                 15
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 991,
+            "defaultFormId": 3301,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34417,24 +34726,50 @@
             "height": 0.6,
             "weight": 11,
             "family": 991,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "992": {
             "name": "Ironhands",
-            "pokedexId": 992,
-            "defaultFormId": 3302,
+            "quickMoves": [
+                207,
+                221,
+                250,
+                282,
+                403,
+                462
+            ],
+            "chargedMoves": [
+                14,
+                31,
+                33,
+                56,
+                63,
+                64,
+                74,
+                77,
+                78,
+                79,
+                88,
+                95,
+                115,
+                123,
+                131,
+                132,
+                245,
+                247,
+                251,
+                268,
+                314,
+                321
+            ],
             "types": [
                 2,
                 13
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 992,
+            "defaultFormId": 3302,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34445,24 +34780,54 @@
             "height": 1.8,
             "weight": 380.7,
             "family": 992,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "993": {
             "name": "Ironjugulis",
-            "pokedexId": 993,
-            "defaultFormId": 3303,
+            "quickMoves": [
+                204,
+                234,
+                240,
+                249,
+                253,
+                255,
+                278,
+                282,
+                402
+            ],
+            "chargedMoves": [
+                14,
+                16,
+                24,
+                36,
+                42,
+                63,
+                74,
+                82,
+                103,
+                107,
+                121,
+                122,
+                131,
+                132,
+                247,
+                277,
+                279,
+                304,
+                321,
+                341,
+                344,
+                364,
+                372
+            ],
             "types": [
                 3,
                 17
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 993,
+            "defaultFormId": 3303,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34473,24 +34838,52 @@
             "height": 1.3,
             "weight": 111,
             "family": 993,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "994": {
             "name": "Ironmoth",
-            "pokedexId": 994,
-            "defaultFormId": 3304,
+            "quickMoves": [
+                209,
+                249,
+                255,
+                261,
+                269,
+                282,
+                345,
+                402
+            ],
+            "chargedMoves": [
+                14,
+                24,
+                35,
+                36,
+                42,
+                49,
+                86,
+                91,
+                101,
+                103,
+                108,
+                116,
+                122,
+                125,
+                132,
+                270,
+                273,
+                303,
+                306,
+                321,
+                364,
+                372
+            ],
             "types": [
                 4,
                 10
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 994,
+            "defaultFormId": 3304,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34501,24 +34894,68 @@
             "height": 1.2,
             "weight": 36,
             "family": 994,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "995": {
             "name": "Ironthorns",
-            "pokedexId": 995,
-            "defaultFormId": 3305,
+            "quickMoves": [
+                202,
+                207,
+                227,
+                228,
+                240,
+                249,
+                250,
+                253,
+                278,
+                282,
+                297,
+                326,
+                327
+            ],
+            "chargedMoves": [
+                14,
+                24,
+                26,
+                31,
+                32,
+                33,
+                39,
+                40,
+                63,
+                64,
+                65,
+                74,
+                77,
+                78,
+                79,
+                83,
+                95,
+                103,
+                115,
+                123,
+                131,
+                132,
+                247,
+                251,
+                258,
+                259,
+                268,
+                279,
+                304,
+                321,
+                372,
+                377,
+                379
+            ],
             "types": [
                 6,
                 13
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 995,
+            "defaultFormId": 3305,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34529,8 +34966,6 @@
             "height": 1.6,
             "weight": 303,
             "family": 995,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "996": {
@@ -34656,6 +35091,10 @@
                 },
                 "3018": {
                     "name": "Coin A1",
+                    "isCostume": true
+                },
+                "3351": {
+                    "name": "Coin A2 2026",
                     "isCostume": true
                 }
             },
@@ -34824,18 +35263,58 @@
         },
         "1005": {
             "name": "Roaringmoon",
-            "pokedexId": 1005,
-            "defaultFormId": 3313,
+            "quickMoves": [
+                202,
+                204,
+                213,
+                228,
+                234,
+                240,
+                253,
+                255,
+                269,
+                278,
+                282,
+                326,
+                346
+            ],
+            "chargedMoves": [
+                14,
+                16,
+                24,
+                26,
+                31,
+                32,
+                42,
+                45,
+                51,
+                64,
+                74,
+                82,
+                83,
+                100,
+                103,
+                107,
+                122,
+                123,
+                131,
+                132,
+                277,
+                279,
+                285,
+                321,
+                341,
+                364,
+                379
+            ],
             "types": [
                 16,
                 17
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 1005,
+            "defaultFormId": 3313,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34846,24 +35325,59 @@
             "height": 2,
             "weight": 380,
             "family": 1005,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "1006": {
             "name": "Ironvaliant",
-            "pokedexId": 1006,
-            "defaultFormId": 3314,
+            "quickMoves": [
+                200,
+                207,
+                213,
+                224,
+                226,
+                234,
+                249,
+                264,
+                357
+            ],
+            "chargedMoves": [
+                14,
+                30,
+                33,
+                45,
+                51,
+                60,
+                66,
+                70,
+                77,
+                79,
+                86,
+                87,
+                100,
+                108,
+                111,
+                115,
+                117,
+                123,
+                125,
+                132,
+                245,
+                247,
+                272,
+                273,
+                314,
+                321,
+                332,
+                383
+            ],
             "types": [
                 2,
                 18
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": false,
+            "mythical": false,
+            "pokedexId": 1006,
+            "defaultFormId": 3314,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34874,8 +35388,6 @@
             "height": 1.4,
             "weight": 35,
             "family": 1006,
-            "legendary": false,
-            "mythical": false,
             "ultraBeast": false
         },
         "1007": {
@@ -34944,18 +35456,47 @@
         },
         "1009": {
             "name": "Walkingwake",
-            "pokedexId": 1009,
-            "defaultFormId": 3324,
+            "quickMoves": [
+                202,
+                204,
+                207,
+                216,
+                240,
+                278,
+                282,
+                283
+            ],
+            "chargedMoves": [
+                14,
+                24,
+                57,
+                80,
+                82,
+                83,
+                105,
+                106,
+                107,
+                122,
+                125,
+                131,
+                132,
+                277,
+                279,
+                284,
+                285,
+                321,
+                379,
+                383,
+                488
+            ],
             "types": [
                 11,
                 16
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": true,
+            "mythical": false,
+            "pokedexId": 1009,
+            "defaultFormId": 3324,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34966,24 +35507,47 @@
             "height": 3.5,
             "weight": 280,
             "family": 1009,
-            "legendary": true,
-            "mythical": false,
             "ultraBeast": false
         },
         "1010": {
             "name": "Ironleaves",
-            "pokedexId": 1010,
-            "defaultFormId": 3325,
+            "quickMoves": [
+                219,
+                255,
+                282,
+                357,
+                402
+            ],
+            "chargedMoves": [
+                14,
+                22,
+                45,
+                51,
+                100,
+                114,
+                116,
+                117,
+                123,
+                125,
+                132,
+                245,
+                247,
+                251,
+                272,
+                273,
+                321,
+                330,
+                343,
+                392
+            ],
             "types": [
                 12,
                 14
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
+            "legendary": true,
+            "mythical": false,
+            "pokedexId": 1010,
+            "defaultFormId": 3325,
             "genId": 9,
             "generation": "Paldea",
             "forms": {
@@ -34994,8 +35558,6 @@
             "height": 1.5,
             "weight": 125,
             "family": 1010,
-            "legendary": true,
-            "mythical": false,
             "ultraBeast": false
         },
         "1011": {
@@ -35016,8 +35578,7 @@
                 82,
                 277
             ],
-            "genId": 9,
-            "generation": "Paldea",
+            "genId": null,
             "forms": {
                 "3326": {
                     "name": "Normal"
@@ -35047,8 +35608,7 @@
                 273,
                 376
             ],
-            "genId": 9,
-            "generation": "Paldea",
+            "genId": null,
             "forms": {
                 "2871": {
                     "name": "Counterfeit"
@@ -35081,8 +35641,7 @@
                 273,
                 376
             ],
-            "genId": 9,
-            "generation": "Paldea",
+            "genId": null,
             "forms": {
                 "2873": {
                     "name": "Unremarkable"
@@ -35115,8 +35674,7 @@
                 310,
                 471
             ],
-            "genId": 9,
-            "generation": "Paldea",
+            "genId": null,
             "forms": {
                 "3327": {
                     "name": "Normal"
@@ -35146,8 +35704,7 @@
                 108,
                 275
             ],
-            "genId": 9,
-            "generation": "Paldea",
+            "genId": null,
             "forms": {
                 "3328": {
                     "name": "Normal"
@@ -35177,8 +35734,7 @@
                 87,
                 90
             ],
-            "genId": 9,
-            "generation": "Paldea",
+            "genId": null,
             "forms": {
                 "3329": {
                     "name": "Normal"
@@ -35208,8 +35764,7 @@
                 118,
                 272
             ],
-            "genId": 9,
-            "generation": "Paldea",
+            "genId": null,
             "forms": {
                 "0": {
                     "name": "Unset"
@@ -35251,8 +35806,7 @@
                 36,
                 83
             ],
-            "genId": 9,
-            "generation": "Paldea",
+            "genId": null,
             "forms": {
                 "3330": {
                     "name": "Normal"
@@ -35283,8 +35837,7 @@
                 82,
                 277
             ],
-            "genId": 9,
-            "generation": "Paldea",
+            "genId": null,
             "forms": {
                 "3331": {
                     "name": "Normal"
@@ -35299,20 +35852,52 @@
         },
         "1020": {
             "name": "Gougingfire",
-            "pokedexId": 1020,
-            "defaultFormId": 3332,
+            "quickMoves": [
+                202,
+                240,
+                253,
+                269,
+                278,
+                282,
+                326,
+                346,
+                356
+            ],
+            "chargedMoves": [
+                14,
+                24,
+                31,
+                32,
+                42,
+                62,
+                74,
+                82,
+                83,
+                95,
+                101,
+                103,
+                127,
+                131,
+                132,
+                270,
+                277,
+                279,
+                285,
+                307,
+                321,
+                353,
+                379,
+                393
+            ],
             "types": [
                 10,
                 16
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
-            "genId": 9,
-            "generation": "Paldea",
+            "legendary": true,
+            "mythical": false,
+            "pokedexId": 1020,
+            "defaultFormId": 3332,
+            "genId": null,
             "forms": {
                 "3332": {
                     "name": "Normal"
@@ -35321,26 +35906,50 @@
             "height": 3.5,
             "weight": 590,
             "family": 1020,
-            "legendary": true,
-            "mythical": false,
             "ultraBeast": false
         },
         "1021": {
             "name": "Ragingbolt",
-            "pokedexId": 1021,
-            "defaultFormId": 3333,
+            "quickMoves": [
+                204,
+                249,
+                250,
+                253,
+                278,
+                282,
+                326
+            ],
+            "chargedMoves": [
+                14,
+                31,
+                35,
+                62,
+                78,
+                79,
+                80,
+                82,
+                116,
+                127,
+                131,
+                132,
+                251,
+                252,
+                268,
+                277,
+                279,
+                285,
+                321,
+                379
+            ],
             "types": [
                 13,
                 16
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
-            "genId": 9,
-            "generation": "Paldea",
+            "legendary": true,
+            "mythical": false,
+            "pokedexId": 1021,
+            "defaultFormId": 3333,
+            "genId": null,
             "forms": {
                 "3333": {
                     "name": "Normal"
@@ -35349,26 +35958,52 @@
             "height": 5.2,
             "weight": 480,
             "family": 1021,
-            "legendary": true,
-            "mythical": false,
             "ultraBeast": false
         },
         "1022": {
             "name": "Ironboulder",
-            "pokedexId": 1022,
-            "defaultFormId": 3334,
+            "quickMoves": [
+                219,
+                224,
+                226,
+                227,
+                234,
+                243,
+                255,
+                282
+            ],
+            "chargedMoves": [
+                14,
+                22,
+                31,
+                32,
+                45,
+                60,
+                63,
+                74,
+                95,
+                100,
+                108,
+                123,
+                126,
+                131,
+                132,
+                245,
+                251,
+                259,
+                321,
+                330,
+                372
+            ],
             "types": [
                 6,
                 14
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
-            "genId": 9,
-            "generation": "Paldea",
+            "legendary": true,
+            "mythical": false,
+            "pokedexId": 1022,
+            "defaultFormId": 3334,
+            "genId": null,
             "forms": {
                 "3334": {
                     "name": "Normal"
@@ -35377,26 +36012,45 @@
             "height": 1.5,
             "weight": 162.5,
             "family": 1022,
-            "legendary": true,
-            "mythical": false,
             "ultraBeast": false
         },
         "1023": {
             "name": "Ironcrown",
-            "pokedexId": 1023,
-            "defaultFormId": 3335,
+            "quickMoves": [
+                226,
+                228,
+                234,
+                235,
+                250,
+                255,
+                282,
+                402
+            ],
+            "chargedMoves": [
+                14,
+                36,
+                60,
+                74,
+                95,
+                100,
+                108,
+                123,
+                131,
+                132,
+                247,
+                268,
+                321,
+                330
+            ],
             "types": [
                 9,
                 14
             ],
-            "quickMoves": [
-                231
-            ],
-            "chargedMoves": [
-                133
-            ],
-            "genId": 9,
-            "generation": "Paldea",
+            "legendary": true,
+            "mythical": false,
+            "pokedexId": 1023,
+            "defaultFormId": 3335,
+            "genId": null,
             "forms": {
                 "3335": {
                     "name": "Normal"
@@ -35405,8 +36059,6 @@
             "height": 1.6,
             "weight": 156,
             "family": 1023,
-            "legendary": true,
-            "mythical": false,
             "ultraBeast": false
         },
         "1024": {
@@ -35422,8 +36074,7 @@
             "chargedMoves": [
                 133
             ],
-            "genId": 9,
-            "generation": "Paldea",
+            "genId": null,
             "forms": {
                 "2880": {
                     "name": "Normal"
@@ -35458,8 +36109,7 @@
                 92,
                 376
             ],
-            "genId": 9,
-            "generation": "Paldea",
+            "genId": null,
             "forms": {
                 "3336": {
                     "name": "Normal"
@@ -35555,6 +36205,10 @@
         "1250": "Move Reroll Other Special Attack A",
         "1301": "Rare Candy",
         "1302": "XL Rare Candy",
+        "1350": "Fusion Resource Dawnwings Necrozma",
+        "1351": "Fusion Resource Duskmane Necrozma",
+        "1352": "Fusion Resource Black Kyurem",
+        "1353": "Fusion Resource White Kyurem",
         "1402": "Paid Raid Ticket",
         "1404": "Star Piece",
         "1408": "Remote Raid Ticket",
@@ -35592,6 +36246,7 @@
         "1627": "Event Ticket 03 To Gift",
         "1628": "Event Ticket 04 To Gift",
         "1629": "Event Ticket 05 To Gift",
+        "1630": "Event Ticket 06 To Gift",
         "1631": "Event Ticket 07 To Gift",
         "1632": "Event Ticket 08 To Gift",
         "1633": "Event Ticket 09 To Gift",
@@ -35607,8 +36262,17 @@
         "2104": "Event Pass Point Live Ops 04",
         "2105": "Event Pass Point Live Ops 05",
         "2106": "Event Pass Point Live Ops 06",
+        "2107": "Event Pass Point Live Ops 07",
+        "2108": "Event Pass Point Live Ops 08",
         "2151": "Event Pass Point Monthly 01",
-        "2152": "Event Pass Point Monthly 02"
+        "2152": "Event Pass Point Monthly 02",
+        "2153": "Event Pass Point Monthly 03",
+        "2205": "Event Ticket S23 2026 01",
+        "2206": "Event Ticket S23 2026 02",
+        "2207": "Event Ticket S23 2026 03",
+        "2213": "Event Ticket S23 2026 09",
+        "2237": "Event Ticket S23 2026 01 To Gift",
+        "2238": "Event Ticket S23 2026 02 To Gift"
     },
     "moves": {
         "0": {
@@ -37293,6 +37957,306 @@
         "494": {
             "name": "Gigaton Hammer",
             "type": 9
+        },
+        "495": {
+            "name": "Vm Move Temp Evolution Mega X V0150 Pokemon Mewtwo"
+        },
+        "496": {
+            "name": "Vm Move Temp Evolution Mega Y V0150 Pokemon Mewtwo"
+        },
+        "497": {
+            "name": "Plasma Fists",
+            "type": 13
+        },
+        "498": {
+            "name": "Vm Move Temp Evolution Mega V0003 Pokemon Venusaur"
+        },
+        "499": {
+            "name": "Vm Move Temp Evolution Mega X V0006 Pokemon Charizard"
+        },
+        "500": {
+            "name": "Vm Move Temp Evolution Mega Y V0006 Pokemon Charizard"
+        },
+        "501": {
+            "name": "Vm Move Temp Evolution Mega V0009 Pokemon Blastoise"
+        },
+        "502": {
+            "name": "Vm Move Temp Evolution Mega V0015 Pokemon Beedrill"
+        },
+        "503": {
+            "name": "Vm Move Temp Evolution Mega V0018 Pokemon Pidgeot"
+        },
+        "504": {
+            "name": "Vm Move Temp Evolution Mega X V0026 Pokemon Raichu"
+        },
+        "505": {
+            "name": "Vm Move Temp Evolution Mega Y V0026 Pokemon Raichu"
+        },
+        "506": {
+            "name": "Vm Move Temp Evolution Mega V0036 Pokemon Clefable"
+        },
+        "507": {
+            "name": "Vm Move Temp Evolution Mega V0065 Pokemon Alakazam"
+        },
+        "508": {
+            "name": "Vm Move Temp Evolution Mega V0071 Pokemon Victreebel"
+        },
+        "509": {
+            "name": "Vm Move Temp Evolution Mega V0080 Pokemon Slowbro"
+        },
+        "510": {
+            "name": "Vm Move Temp Evolution Mega V0094 Pokemon Gengar"
+        },
+        "511": {
+            "name": "Vm Move Temp Evolution Mega V0115 Pokemon Kangaskhan"
+        },
+        "512": {
+            "name": "Vm Move Temp Evolution Mega V0121 Pokemon Starmie"
+        },
+        "513": {
+            "name": "Vm Move Temp Evolution Mega V0127 Pokemon Pinsir"
+        },
+        "514": {
+            "name": "Vm Move Temp Evolution Mega V0130 Pokemon Gyarados"
+        },
+        "515": {
+            "name": "Vm Move Temp Evolution Mega V0149 Pokemon Dragonite"
+        },
+        "516": {
+            "name": "Vm Move Temp Evolution Mega V0154 Pokemon Meganium"
+        },
+        "517": {
+            "name": "Vm Move Temp Evolution Mega V0160 Pokemon Feraligatr"
+        },
+        "518": {
+            "name": "Vm Move Temp Evolution Mega V0181 Pokemon Ampharos"
+        },
+        "519": {
+            "name": "Vm Move Temp Evolution Mega V0208 Pokemon Steelix"
+        },
+        "520": {
+            "name": "Vm Move Temp Evolution Mega V0212 Pokemon Scizor"
+        },
+        "521": {
+            "name": "Vm Move Temp Evolution Mega V0214 Pokemon Heracross"
+        },
+        "522": {
+            "name": "Vm Move Temp Evolution Mega V0227 Pokemon Skarmory"
+        },
+        "523": {
+            "name": "Vm Move Temp Evolution Mega V0229 Pokemon Houndoom"
+        },
+        "524": {
+            "name": "Vm Move Temp Evolution Mega V0248 Pokemon Tyranitar"
+        },
+        "525": {
+            "name": "Vm Move Temp Evolution Mega V0254 Pokemon Sceptile"
+        },
+        "526": {
+            "name": "Vm Move Temp Evolution Mega V0257 Pokemon Blaziken"
+        },
+        "527": {
+            "name": "Vm Move Temp Evolution Mega V0260 Pokemon Swampert"
+        },
+        "528": {
+            "name": "Vm Move Temp Evolution Mega V0282 Pokemon Gardevoir"
+        },
+        "529": {
+            "name": "Vm Move Temp Evolution Mega V0302 Pokemon Sableye"
+        },
+        "530": {
+            "name": "Vm Move Temp Evolution Mega V0303 Pokemon Mawile"
+        },
+        "531": {
+            "name": "Vm Move Temp Evolution Mega V0306 Pokemon Aggron"
+        },
+        "532": {
+            "name": "Vm Move Temp Evolution Mega V0308 Pokemon Medicham"
+        },
+        "533": {
+            "name": "Vm Move Temp Evolution Mega V0310 Pokemon Manectric"
+        },
+        "534": {
+            "name": "Vm Move Temp Evolution Mega V0319 Pokemon Sharpedo"
+        },
+        "535": {
+            "name": "Vm Move Temp Evolution Mega V0323 Pokemon Camerupt"
+        },
+        "536": {
+            "name": "Vm Move Temp Evolution Mega V0334 Pokemon Altaria"
+        },
+        "537": {
+            "name": "Vm Move Temp Evolution Mega V0354 Pokemon Banette"
+        },
+        "538": {
+            "name": "Vm Move Temp Evolution Mega V0358 Pokemon Chimecho"
+        },
+        "539": {
+            "name": "Vm Move Temp Evolution Mega V0359 Pokemon Absol"
+        },
+        "540": {
+            "name": "Vm Move Temp Evolution Mega Z V0359 Pokemon Absol"
+        },
+        "541": {
+            "name": "Vm Move Temp Evolution Mega V0362 Pokemon Glalie"
+        },
+        "542": {
+            "name": "Vm Move Temp Evolution Mega V0373 Pokemon Salamence"
+        },
+        "543": {
+            "name": "Vm Move Temp Evolution Mega V0376 Pokemon Metagross"
+        },
+        "544": {
+            "name": "Vm Move Temp Evolution Mega V0380 Pokemon Latias"
+        },
+        "545": {
+            "name": "Vm Move Temp Evolution Mega V0381 Pokemon Latios"
+        },
+        "546": {
+            "name": "Vm Move Temp Evolution Mega V0384 Pokemon Rayquaza"
+        },
+        "547": {
+            "name": "Vm Move Temp Evolution Mega V0398 Pokemon Staraptor"
+        },
+        "548": {
+            "name": "Vm Move Temp Evolution Mega V0428 Pokemon Lopunny"
+        },
+        "549": {
+            "name": "Vm Move Temp Evolution Mega V0445 Pokemon Garchomp"
+        },
+        "550": {
+            "name": "Vm Move Temp Evolution Mega Z V0445 Pokemon Garchomp"
+        },
+        "551": {
+            "name": "Vm Move Temp Evolution Mega V0448 Pokemon Lucario"
+        },
+        "552": {
+            "name": "Vm Move Temp Evolution Mega Z V0448 Pokemon Lucario"
+        },
+        "553": {
+            "name": "Vm Move Temp Evolution Mega V0460 Pokemon Abomasnow"
+        },
+        "554": {
+            "name": "Vm Move Temp Evolution Mega V0475 Pokemon Gallade"
+        },
+        "555": {
+            "name": "Vm Move Temp Evolution Mega V0478 Pokemon Froslass"
+        },
+        "556": {
+            "name": "Vm Move Temp Evolution Mega V0485 Pokemon Heatran"
+        },
+        "557": {
+            "name": "Vm Move Temp Evolution Mega V0491 Pokemon Darkrai"
+        },
+        "558": {
+            "name": "Vm Move Temp Evolution Mega V0500 Pokemon Emboar"
+        },
+        "559": {
+            "name": "Vm Move Temp Evolution Mega V0530 Pokemon Excadrill"
+        },
+        "560": {
+            "name": "Vm Move Temp Evolution Mega V0531 Pokemon Audino"
+        },
+        "561": {
+            "name": "Vm Move Temp Evolution Mega V0545 Pokemon Scolipede"
+        },
+        "562": {
+            "name": "Vm Move Temp Evolution Mega V0560 Pokemon Scrafty"
+        },
+        "563": {
+            "name": "Vm Move Temp Evolution Mega V0604 Pokemon Eelektross"
+        },
+        "564": {
+            "name": "Vm Move Temp Evolution Mega V0609 Pokemon Chandelure"
+        },
+        "565": {
+            "name": "Vm Move Temp Evolution Mega V0623 Pokemon Golurk"
+        },
+        "566": {
+            "name": "Vm Move Temp Evolution Mega V0652 Pokemon Chesnaught"
+        },
+        "567": {
+            "name": "Vm Move Temp Evolution Mega V0655 Pokemon Delphox"
+        },
+        "568": {
+            "name": "Vm Move Temp Evolution Mega V0658 Pokemon Greninja"
+        },
+        "569": {
+            "name": "Vm Move Temp Evolution Mega V0668 Pokemon Pyroar"
+        },
+        "570": {
+            "name": "Vm Move Temp Evolution Mega V0670 Pokemon Floette"
+        },
+        "571": {
+            "name": "Vm Move Temp Evolution Mega V0678 Pokemon Meowstic"
+        },
+        "572": {
+            "name": "Vm Move Temp Evolution Mega V0687 Pokemon Malamar"
+        },
+        "573": {
+            "name": "Vm Move Temp Evolution Mega V0689 Pokemon Barbaracle"
+        },
+        "574": {
+            "name": "Vm Move Temp Evolution Mega V0691 Pokemon Dragalge"
+        },
+        "575": {
+            "name": "Vm Move Temp Evolution Mega V0701 Pokemon Hawlucha"
+        },
+        "576": {
+            "name": "Vm Move Temp Evolution Mega V0718 Pokemon Zygarde"
+        },
+        "577": {
+            "name": "Vm Move Temp Evolution Mega V0719 Pokemon Diancie"
+        },
+        "578": {
+            "name": "Vm Move Temp Evolution Mega V0740 Pokemon Crabominable"
+        },
+        "579": {
+            "name": "Vm Move Temp Evolution Mega V0768 Pokemon Golisopod"
+        },
+        "580": {
+            "name": "Vm Move Temp Evolution Mega V0780 Pokemon Drampa"
+        },
+        "581": {
+            "name": "Vm Move Temp Evolution Mega V0801 Pokemon Magearna"
+        },
+        "582": {
+            "name": "Vm Move Temp Evolution Mega V0807 Pokemon Zeraora"
+        },
+        "583": {
+            "name": "Vm Move Temp Evolution Mega V0870 Pokemon Falinks"
+        },
+        "584": {
+            "name": "Vm Move Temp Evolution Mega V0952 Pokemon Scovillain"
+        },
+        "585": {
+            "name": "Vm Move Temp Evolution Mega V0970 Pokemon Glimmora"
+        },
+        "586": {
+            "name": "Vm Move Temp Evolution Mega V0978 Pokemon Tatsugiri"
+        },
+        "587": {
+            "name": "Vm Move Temp Evolution Mega V0998 Pokemon Baxcalibur"
+        },
+        "588": {
+            "name": "Vm Move Temp Evolution Primal V0382 Pokemon Kyogre"
+        },
+        "589": {
+            "name": "Vm Move Temp Evolution Primal V0383 Pokemon Groudon"
+        },
+        "590": {
+            "name": "Glaive Rush",
+            "type": 16
+        },
+        "592": {
+            "name": "Snipe Shot",
+            "type": 11
+        },
+        "594": {
+            "name": "Gulp Missile Gulping"
+        },
+        "595": {
+            "name": "Gulp Missile Gorging"
         }
     },
     "questRewardTypes": {
@@ -37376,8 +38340,8 @@
             "gender": 1,
             "grunt": "Grunt",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -37428,10 +38392,14 @@
             "gender": 2,
             "grunt": "Grunt",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
+                    {
+                        "id": 131,
+                        "form": 322
+                    },
                     {
                         "id": 143,
                         "form": 199
@@ -37486,20 +38454,20 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
+                    {
+                        "id": 13,
+                        "form": 616
+                    },
                     {
                         "id": 48,
                         "form": 259
                     },
                     {
-                        "id": 588,
-                        "form": 2156
-                    },
-                    {
-                        "id": 616,
-                        "form": 2240
+                        "id": 736,
+                        "form": 3089
                     }
                 ],
                 "second": [
@@ -37508,12 +38476,12 @@
                         "form": 898
                     },
                     {
-                        "id": 213,
-                        "form": 827
-                    },
-                    {
                         "id": 347,
                         "form": 1574
+                    },
+                    {
+                        "id": 751,
+                        "form": 3100
                     }
                 ],
                 "third": [
@@ -37527,7 +38495,7 @@
                     },
                     {
                         "id": 738,
-                        "form": 0
+                        "form": 3091
                     }
                 ]
             }
@@ -37564,7 +38532,7 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -37582,12 +38550,16 @@
                 ],
                 "second": [
                     {
-                        "id": 20,
-                        "form": 48
+                        "id": 215,
+                        "form": 797
                     },
                     {
-                        "id": 262,
-                        "form": 1370
+                        "id": 228,
+                        "form": 229
+                    },
+                    {
+                        "id": 359,
+                        "form": 830
                     }
                 ],
                 "third": [
@@ -37620,8 +38592,8 @@
             "gender": 2,
             "grunt": "Grunt",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -37629,12 +38601,12 @@
                         "form": 190
                     },
                     {
-                        "id": 371,
-                        "form": 755
-                    },
-                    {
                         "id": 633,
                         "form": 2291
+                    },
+                    {
+                        "id": 714,
+                        "form": 3070
                     }
                 ],
                 "second": [
@@ -37686,7 +38658,7 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -37751,7 +38723,7 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -37792,7 +38764,7 @@
                     },
                     {
                         "id": 979,
-                        "form": 0
+                        "form": 3290
                     }
                 ]
             }
@@ -37815,21 +38787,21 @@
             "gender": 2,
             "grunt": "Grunt",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
-                        "id": 37,
-                        "form": 55
+                        "id": 77,
+                        "form": 1011
+                    },
+                    {
+                        "id": 255,
+                        "form": 1358
                     },
                     {
                         "id": 607,
                         "form": 2213
-                    },
-                    {
-                        "id": 653,
-                        "form": 0
                     }
                 ],
                 "second": [
@@ -37838,12 +38810,12 @@
                         "form": 634
                     },
                     {
-                        "id": 323,
-                        "form": 1520
+                        "id": 257,
+                        "form": 1364
                     },
                     {
-                        "id": 654,
-                        "form": 0
+                        "id": 323,
+                        "form": 1520
                     }
                 ],
                 "third": [
@@ -37857,7 +38829,7 @@
                     },
                     {
                         "id": 655,
-                        "form": 0
+                        "form": 3027
                     }
                 ]
             }
@@ -37881,13 +38853,9 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
-                    {
-                        "id": 16,
-                        "form": 962
-                    },
                     {
                         "id": 276,
                         "form": 1400
@@ -37895,6 +38863,10 @@
                     {
                         "id": 333,
                         "form": 1532
+                    },
+                    {
+                        "id": 821,
+                        "form": 3160
                     }
                 ],
                 "second": [
@@ -37922,7 +38894,7 @@
                     },
                     {
                         "id": 733,
-                        "form": 0
+                        "form": 3086
                     }
                 ]
             }
@@ -37958,35 +38930,35 @@
             "gender": 1,
             "grunt": "Grunt",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
-                        "id": 331,
-                        "form": 610
+                        "id": 114,
+                        "form": 1059
                     },
                     {
-                        "id": 650,
-                        "form": 0
+                        "id": 252,
+                        "form": 1349
                     },
                     {
                         "id": 708,
-                        "form": 0
+                        "form": 3067
                     }
                 ],
                 "second": [
+                    {
+                        "id": 254,
+                        "form": 1355
+                    },
                     {
                         "id": 345,
                         "form": 1568
                     },
                     {
-                        "id": 598,
-                        "form": 2186
-                    },
-                    {
-                        "id": 651,
-                        "form": 0
+                        "id": 755,
+                        "form": 3104
                     }
                 ],
                 "third": [
@@ -37996,11 +38968,11 @@
                     },
                     {
                         "id": 652,
-                        "form": 0
+                        "form": 3024
                     },
                     {
                         "id": 709,
-                        "form": 0
+                        "form": 3068
                     }
                 ]
             }
@@ -38024,12 +38996,12 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
-                        "id": 27,
-                        "form": 51
+                        "id": 111,
+                        "form": 846
                     },
                     {
                         "id": 207,
@@ -38075,17 +39047,17 @@
             "gender": 2,
             "grunt": "Grunt",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
-                        "id": 215,
-                        "form": 797
+                        "id": 86,
+                        "form": 1032
                     },
                     {
-                        "id": 220,
-                        "form": 1277
+                        "id": 225,
+                        "form": 938
                     },
                     {
                         "id": 363,
@@ -38117,7 +39089,7 @@
                     },
                     {
                         "id": 699,
-                        "form": 0
+                        "form": 3061
                     }
                 ]
             }
@@ -38153,8 +39125,8 @@
             "gender": 1,
             "grunt": "Grunt",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -38219,27 +39191,23 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
-                        "id": 52,
-                        "form": 63
+                        "id": 137,
+                        "form": 677
+                    },
+                    {
+                        "id": 163,
+                        "form": 1151
                     },
                     {
                         "id": 216,
                         "form": 1265
-                    },
-                    {
-                        "id": 333,
-                        "form": 1532
                     }
                 ],
                 "second": [
-                    {
-                        "id": 19,
-                        "form": 45
-                    },
                     {
                         "id": 294,
                         "form": 1445
@@ -38247,6 +39215,10 @@
                     {
                         "id": 396,
                         "form": 1658
+                    },
+                    {
+                        "id": 759,
+                        "form": 3108
                     }
                 ],
                 "third": [
@@ -38271,7 +39243,7 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -38349,7 +39321,7 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -38390,7 +39362,7 @@
                     },
                     {
                         "id": 687,
-                        "form": 0
+                        "form": 3049
                     }
                 ]
             }
@@ -38414,16 +39386,16 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
-                        "id": 138,
-                        "form": 740
+                        "id": 95,
+                        "form": 902
                     },
                     {
-                        "id": 213,
-                        "form": 827
+                        "id": 140,
+                        "form": 1104
                     },
                     {
                         "id": 408,
@@ -38451,11 +39423,11 @@
                     },
                     {
                         "id": 697,
-                        "form": 0
+                        "form": 3059
                     },
                     {
                         "id": 699,
-                        "form": 0
+                        "form": 3061
                     }
                 ]
             }
@@ -38465,8 +39437,8 @@
             "gender": 2,
             "grunt": "Grunt",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -38478,22 +39450,22 @@
                         "form": 870
                     },
                     {
-                        "id": 656,
-                        "form": 0
+                        "id": 258,
+                        "form": 205
                     }
                 ],
                 "second": [
                     {
-                        "id": 73,
-                        "form": 1008
+                        "id": 260,
+                        "form": 211
                     },
                     {
                         "id": 319,
                         "form": 737
                     },
                     {
-                        "id": 657,
-                        "form": 0
+                        "id": 751,
+                        "form": 3100
                     }
                 ],
                 "third": [
@@ -38507,7 +39479,7 @@
                     },
                     {
                         "id": 658,
-                        "form": 0
+                        "form": 3030
                     }
                 ]
             }
@@ -38518,7 +39490,7 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -38565,27 +39537,27 @@
             "gender": 0,
             "grunt": "Executive",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
-                        "id": 129,
-                        "form": 253
+                        "id": 610,
+                        "form": 2222
                     }
                 ],
                 "second": [
                     {
-                        "id": 227,
-                        "form": 1295
+                        "id": 110,
+                        "form": 944
                     },
                     {
-                        "id": 346,
-                        "form": 1571
+                        "id": 143,
+                        "form": 199
                     },
                     {
-                        "id": 979,
-                        "form": 0
+                        "id": 623,
+                        "form": 2261
                     }
                 ],
                 "third": [
@@ -38609,13 +39581,13 @@
             "gender": 0,
             "grunt": "Executive",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
-                        "id": 303,
-                        "form": 833
+                        "id": 696,
+                        "form": 3058
                     }
                 ],
                 "second": [
@@ -38653,13 +39625,13 @@
             "gender": 0,
             "grunt": "Executive",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
-                        "id": 187,
-                        "form": 1205
+                        "id": 698,
+                        "form": 3060
                     }
                 ],
                 "second": [
@@ -38696,8 +39668,8 @@
             "type": "Giovanni",
             "gender": 0,
             "grunt": "Giovanni",
-            "firstReward": true,
-            "secondReward": true,
+            "firstReward": false,
+            "secondReward": false,
             "thirdReward": true,
             "encounters": {
                 "first": [
@@ -38722,8 +39694,8 @@
                 ],
                 "third": [
                     {
-                        "id": 642,
-                        "form": 142
+                        "id": 643,
+                        "form": 2315
                     }
                 ]
             }
@@ -38746,8 +39718,8 @@
             "gender": 2,
             "grunt": "Grunt",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -38795,8 +39767,8 @@
             "gender": 1,
             "grunt": "Grunt",
             "firstReward": true,
-            "secondReward": true,
-            "thirdReward": true,
+            "secondReward": false,
+            "thirdReward": false,
             "encounters": {
                 "first": [
                     {
@@ -38848,13 +39820,9 @@
             "grunt": "Grunt",
             "firstReward": true,
             "secondReward": true,
-            "thirdReward": true,
+            "thirdReward": false,
             "encounters": {
                 "first": [
-                    {
-                        "id": 81,
-                        "form": 655
-                    },
                     {
                         "id": 100,
                         "form": 1047
@@ -38862,6 +39830,10 @@
                     {
                         "id": 403,
                         "form": 1679
+                    },
+                    {
+                        "id": 694,
+                        "form": 3056
                     }
                 ],
                 "second": [
@@ -40155,6 +41127,36 @@
             "proto": "LC_2026_COLOGNE_CARNIVAL_001",
             "formatted": "2026 Cologne Carnival 001"
         },
+        "245": {
+            "proto": "LC_2026_COPENHAGEN_GOFEST_001",
+            "formatted": "2026 Copenhagen Gofest 001",
+            "cardType": "LOCATION_CARD"
+        },
+        "246": {
+            "proto": "LC_2026_TOKYO_GOFEST_001",
+            "formatted": "2026 Tokyo Gofest 001",
+            "cardType": "LOCATION_CARD"
+        },
+        "247": {
+            "proto": "LC_2026_CHICAGO_GOFEST_001",
+            "formatted": "2026 Chicago Gofest 001",
+            "cardType": "LOCATION_CARD"
+        },
+        "248": {
+            "proto": "LC_SPECIALBACKGROUND_2026_GLOBAL_GOFEST_001",
+            "formatted": "2026 Global Gofest 001",
+            "cardType": "SPECIAL_BACKGROUND"
+        },
+        "249": {
+            "proto": "LC_SPECIALBACKGROUND_2026_MEWTWO_001",
+            "formatted": "2026 Mewtwo 001",
+            "cardType": "SPECIAL_BACKGROUND"
+        },
+        "250": {
+            "proto": "LC_SPECIALBACKGROUND_2026_MEWTWO_002",
+            "formatted": "2026 Mewtwo 002",
+            "cardType": "SPECIAL_BACKGROUND"
+        },
         "252": {
             "proto": "LC_2026_NPB_001",
             "formatted": "2026 Npb 001"
@@ -40206,6 +41208,109 @@
         "264": {
             "proto": "LC_2026_NPB_013",
             "formatted": "2026 Npb 013"
+        },
+        "271": {
+            "proto": "LC_TOKMUN_STAMP_01",
+            "formatted": "Tokmun Stamp 01"
+        },
+        "272": {
+            "proto": "LC_TOKMUN_STAMP_02",
+            "formatted": "Tokmun Stamp 02"
+        },
+        "273": {
+            "proto": "LC_TOKMUN_STAMP_03",
+            "formatted": "Tokmun Stamp 03"
+        },
+        "277": {
+            "proto": "LC_SPECIALBACKGROUND_2026_ARRAIA",
+            "formatted": "2026 Arraia",
+            "cardType": "SPECIAL_BACKGROUND"
+        },
+        "280": {
+            "proto": "LC_2026_BR_001",
+            "formatted": "2026 Br 001"
+        },
+        "281": {
+            "proto": "LC_SPECIALBACKGROUND_LEGO_2026_01",
+            "formatted": "Lego 2026 01",
+            "cardType": "SPECIAL_BACKGROUND"
+        },
+        "312": {
+            "proto": "LC_JAPAN_STAMP_RALLY_1",
+            "formatted": "Japan Stamp Rally 1"
+        },
+        "313": {
+            "proto": "LC_JAPAN_STAMP_RALLY_2",
+            "formatted": "Japan Stamp Rally 2"
+        },
+        "314": {
+            "proto": "LC_JAPAN_STAMP_RALLY_3",
+            "formatted": "Japan Stamp Rally 3"
+        },
+        "315": {
+            "proto": "LC_JAPAN_STAMP_RALLY_4",
+            "formatted": "Japan Stamp Rally 4"
+        },
+        "316": {
+            "proto": "LC_JAPAN_STAMP_RALLY_5",
+            "formatted": "Japan Stamp Rally 5"
+        },
+        "317": {
+            "proto": "LC_JAPAN_STAMP_RALLY_6",
+            "formatted": "Japan Stamp Rally 6"
+        },
+        "318": {
+            "proto": "LC_JAPAN_STAMP_RALLY_7",
+            "formatted": "Japan Stamp Rally 7"
+        },
+        "319": {
+            "proto": "LC_JAPAN_STAMP_RALLY_8",
+            "formatted": "Japan Stamp Rally 8"
+        },
+        "320": {
+            "proto": "LC_JAPAN_STAMP_RALLY_9",
+            "formatted": "Japan Stamp Rally 9"
+        },
+        "321": {
+            "proto": "LC_JAPAN_STAMP_RALLY_10",
+            "formatted": "Japan Stamp Rally 10"
+        },
+        "322": {
+            "proto": "LC_JAPAN_STAMP_RALLY_11",
+            "formatted": "Japan Stamp Rally 11"
+        },
+        "323": {
+            "proto": "LC_JAPAN_STAMP_RALLY_12",
+            "formatted": "Japan Stamp Rally 12"
+        },
+        "324": {
+            "proto": "LC_JAPAN_STAMP_RALLY_13",
+            "formatted": "Japan Stamp Rally 13"
+        },
+        "325": {
+            "proto": "LC_JAPAN_STAMP_RALLY_14",
+            "formatted": "Japan Stamp Rally 14"
+        },
+        "326": {
+            "proto": "LC_JAPAN_STAMP_RALLY_15",
+            "formatted": "Japan Stamp Rally 15"
+        },
+        "327": {
+            "proto": "LC_JAPAN_STAMP_RALLY_16",
+            "formatted": "Japan Stamp Rally 16"
+        },
+        "328": {
+            "proto": "LC_JAPAN_STAMP_RALLY_17",
+            "formatted": "Japan Stamp Rally 17"
+        },
+        "329": {
+            "proto": "LC_JAPAN_STAMP_RALLY_18",
+            "formatted": "Japan Stamp Rally 18"
+        },
+        "333": {
+            "proto": "LC_SPECIALBACKGROUND_GG2026",
+            "formatted": "Gg2026",
+            "cardType": "SPECIAL_BACKGROUND"
         }
     },
     "routeTypes": {
