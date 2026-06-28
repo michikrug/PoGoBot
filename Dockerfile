@@ -7,7 +7,7 @@ COPY build_translations.py bot_strings.json ./
 RUN python3 build_translations.py
 
 # Stage 2: Build the Go binary
-FROM golang:1.26.1-alpine AS builder
+FROM golang:1.26.4-alpine AS builder
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ COPY *.go ./
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bot .
 
 # Stage 3: Create a minimal runtime environment
-FROM alpine:3.23.3
+FROM alpine:3.23.5
 
 # Install CA certificates (needed for MySQL & HTTPS requests) and create app user
 RUN apk --no-cache add ca-certificates tzdata && adduser -D -u 1001 botuser
