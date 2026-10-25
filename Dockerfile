@@ -7,7 +7,7 @@ COPY build_translations.py bot_strings.json ./
 RUN python3 build_translations.py
 
 # Stage 2: Build the Go binary
-FROM golang:1.26.4-alpine AS builder
+FROM golang:1.27.3-alpine AS builder
 
 WORKDIR /app
 

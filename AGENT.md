@@ -74,7 +74,7 @@ The notification loop reads exclusively from these caches, never from the DB dir
 
 | | |
 | --- | --- |
-| **Language** | Go 1.26 |
+| **Language** | Go 1.27 |
 | **Bot API** | `gopkg.in/telebot.v3` (long-polling) |
 | **ORM** | `gorm.io/gorm` + MySQL driver (SQLite in tests only) |
 | **Config** | `github.com/joho/godotenv` + `os.Getenv` |

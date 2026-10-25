@@ -19,7 +19,7 @@ A **Telegram bot** written in Go that notifies users about Pokémon encounters b
 
 ## 🔧 Requirements
 
-- Go 1.21+
+- Go 1.27+
 - Two MySQL-compatible databases:
   - **Bot DB** – stores users, subscriptions, tracked messages, and encounter state.
   - **Scanner DB** – a read-only Golbat / RDM database that provides live encounter data.
