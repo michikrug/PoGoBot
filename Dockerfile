@@ -1,5 +1,5 @@
 # Stage 1: Generate translations and masterfile
-FROM python:3.13-alpine AS translations
+FROM python:3.15-alpine AS translations
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ COPY *.go ./
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bot .
 
 # Stage 3: Create a minimal runtime environment
-FROM alpine:3.23.5
+FROM alpine:3.24.3
 
 # Install CA certificates (needed for MySQL & HTTPS requests) and create app user
 RUN apk --no-cache add ca-certificates tzdata && adduser -D -u 1001 botuser
